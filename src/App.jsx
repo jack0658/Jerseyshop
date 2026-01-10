@@ -430,7 +430,7 @@ export default function JerseyShop() {
                   <div className="space-y-4 mb-6">
                     {cart.map(item => (
                       <div key={item.cartId} className="flex gap-4 p-3 border rounded-lg">
-                        <img src={`${item.image}?v=${Date.now()}`} alt={item.name} className="w-20 h-20 object-cover rounded" />
+                        <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded" />
                         <div className="flex-1">
                           <h3 className="font-semibold text-sm mb-1">{item.name}</h3>
                           <p className="text-xs text-gray-600 mb-2">Taille: {item.size}</p>
@@ -589,7 +589,7 @@ export default function JerseyShop() {
                   {products.map(p => (
                     <div key={p.id} className="bg-white rounded-lg shadow p-3 flex flex-col">
                       <div className="w-full h-40 flex items-center justify-center bg-gray-50 rounded mb-3 p-3">
-                        <img src={`${p.image}?v=${Date.now()}`} alt={p.name} className="max-h-full max-w-full object-contain" />
+                        <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
                       </div>
                       <h3 className="font-semibold text-sm mb-2 line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
                       <p className="text-xs text-gray-600 mb-2">Prix: {p.price}€ | Cout: {p.cost}€</p>
@@ -697,7 +697,7 @@ export default function JerseyShop() {
                 {filteredProducts.map(p => (
                   <div key={p.id} className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer flex flex-col" onClick={() => { setSelectedProduct(p); setPage('product'); }}>
                     <div className="h-48 w-full flex items-center justify-center bg-gray-50 rounded-t-lg p-3">
-                      <img src={`${p.image}?v=${Date.now()}`} alt={p.name} className="max-h-full max-w-full object-contain" />
+                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
                     </div>
                     <div className="p-3 flex-1 flex flex-col justify-between">
                       <h3 className="font-semibold text-sm mb-2 line-clamp-2">{p.name}</h3>
@@ -738,7 +738,7 @@ export default function JerseyShop() {
                 {filteredProducts.map(p => (
                   <div key={p.id} className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer flex flex-col" onClick={() => { setSelectedProduct(p); setPage('product'); }}>
                     <div className="h-48 w-full flex items-center justify-center bg-gray-50 rounded-t-lg p-3">
-                      <img src={`${p.image}?v=${Date.now()}`} alt={p.name} className="max-h-full max-w-full object-contain" />
+                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
                     </div>
                     <div className="p-3 flex-1 flex flex-col justify-between">
                       <h3 className="font-semibold text-sm mb-2 line-clamp-2">{p.name}</h3>
@@ -763,7 +763,7 @@ export default function JerseyShop() {
             <button onClick={() => setPage('shop')} className="text-blue-600 mb-6">← Retour</button>
             <div className="grid md:grid-cols-2 gap-12">
               <div className="flex items-center justify-center bg-gray-50 rounded-lg p-8">
-                <img src={`${selectedProduct.image}?v=${Date.now()}`} alt={selectedProduct.name} className="max-w-full max-h-[500px] object-contain" />
+                <img src={selectedProduct.image} alt={selectedProduct.name} className="max-w-full max-h-[500px] object-contain" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold mb-4">{selectedProduct.name}</h1>
