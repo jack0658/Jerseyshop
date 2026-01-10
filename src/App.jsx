@@ -14,23 +14,30 @@ const INITIAL_PRODUCTS = [
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 export default function JerseyShop() {
+  // Fonction helper pour le localStorage
+  const getFromStorage = (key, defaultValue) => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+      console.error(`Error reading ${key} from localStorage:`, error);
+      return defaultValue;
+    }
+  };
+
+  const saveToStorage = (key, value) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error(`Error saving ${key} to localStorage:`, error);
+    }
+  };
+
   const [page, setPage] = useState('home');
-  const [products, setProducts] = useState(() => {
-    const saved = localStorage.getItem('products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
-  const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem('orders');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem('users');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('currentUser');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [products, setProducts] = useState(() => getFromStorage('products', INITIAL_PRODUCTS));
+  const [orders, setOrders] = useState(() => getFromStorage('orders', []));
+  const [users, setUsers] = useState(() => getFromStorage('users', []));
+  const [currentUser, setCurrentUser] = useState(() => getFromStorage('currentUser', null));
   const [cart, setCart] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState('M');
@@ -65,21 +72,21 @@ export default function JerseyShop() {
   const [customerCity, setCustomerCity] = useState('');
   const [customerPostal, setCustomerPostal] = useState('');
 
-  // Sauvegarde dans localStorage
+  // Sauvegarde dans localStorage avec gestion d'erreur
   React.useEffect(() => {
-    localStorage.setItem('products', JSON.stringify(products));
+    saveToStorage('products', products);
   }, [products]);
 
   React.useEffect(() => {
-    localStorage.setItem('orders', JSON.stringify(orders));
+    saveToStorage('orders', orders);
   }, [orders]);
 
   React.useEffect(() => {
-    localStorage.setItem('users', JSON.stringify(users));
+    saveToStorage('users', users);
   }, [users]);
 
   React.useEffect(() => {
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    saveToStorage('currentUser', currentUser);
   }, [currentUser]);
 
   const filteredProducts = products.filter(p => 
@@ -246,8 +253,9 @@ export default function JerseyShop() {
       notify('Veuillez remplir tous les champs et ajouter une image');
       return;
     }
+    
     if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? {
+      const updatedProducts = products.map(p => p.id === editingProduct.id ? {
         ...p,
         name: productName,
         club: productClub,
@@ -256,10 +264,11 @@ export default function JerseyShop() {
         category: productCategory,
         image: productImage,
         stock: parseInt(productStock)
-      } : p));
+      } : p);
+      setProducts(updatedProducts);
       notify('Produit modifie');
     } else {
-      setProducts([...products, {
+      const newProduct = {
         id: Date.now(),
         name: productName,
         club: productClub,
@@ -269,7 +278,8 @@ export default function JerseyShop() {
         image: productImage,
         stock: parseInt(productStock),
         rating: 4.5
-      }]);
+      };
+      setProducts([...products, newProduct]);
       notify('Produit ajoute');
     }
     setShowProductForm(false);
