@@ -14,31 +14,12 @@ const INITIAL_PRODUCTS = [
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 export default function JerseyShop() {
-  // Fonction de stockage sécurisée
-  const getStoredData = (key, defaultValue) => {
-    if (typeof window === 'undefined') return defaultValue;
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  };
-
-  const saveData = (key, value) => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-    }
-  };
-
   const [page, setPage] = useState('home');
-  const [products, setProducts] = useState(() => getStoredData('jerseyshop_products', INITIAL_PRODUCTS));
-  const [orders, setOrders] = useState(() => getStoredData('jerseyshop_orders', []));
-  const [users, setUsers] = useState(() => getStoredData('jerseyshop_users', []));
-  const [currentUser, setCurrentUser] = useState(() => getStoredData('jerseyshop_currentUser', null));
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState('M');
@@ -73,22 +54,40 @@ export default function JerseyShop() {
   const [customerCity, setCustomerCity] = useState('');
   const [customerPostal, setCustomerPostal] = useState('');
 
-  // Sauvegarde automatique dans localStorage
+  // Chargement des données partagées depuis le stockage persistant
   React.useEffect(() => {
-    saveData('jerseyshop_products', products);
-  }, [products]);
+    loadAllData();
+  }, []);
 
-  React.useEffect(() => {
-    saveData('jerseyshop_orders', orders);
-  }, [orders]);
+  const loadAllData = async () => {
+    try {
+      // Charger les produits
+      const productsResult = await window.storage.get('shop_products', true);
+      if (productsResult?.value) {
+        setProducts(JSON.parse(productsResult.value));
+      } else {
+        // Initialiser avec les produits par défaut si vide
+        setProducts(INITIAL_PRODUCTS);
+        await window.storage.set('shop_products', JSON.stringify(INITIAL_PRODUCTS), true);
+      }
 
-  React.useEffect(() => {
-    saveData('jerseyshop_users', users);
-  }, [users]);
+      // Charger les commandes
+      const ordersResult = await window.storage.get('shop_orders', true);
+      if (ordersResult?.value) {
+        setOrders(JSON.parse(ordersResult.value));
+      }
 
-  React.useEffect(() => {
-    saveData('jerseyshop_currentUser', currentUser);
-  }, [currentUser]);
+      // Charger les utilisateurs
+      const usersResult = await window.storage.get('shop_users', true);
+      if (usersResult?.value) {
+        setUsers(JSON.parse(usersResult.value));
+      }
+    } catch (error) {
+      console.log('Initialisation:', error);
+      setProducts(INITIAL_PRODUCTS);
+    }
+    setLoading(false);
+  };
 
   const filteredProducts = products.filter(p => 
     searchTerm === '' || 
@@ -159,7 +158,9 @@ export default function JerseyShop() {
       password: registerPassword,
       isAdmin: false
     };
-    setUsers([...users, newUser]);
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    window.storage.set('shop_users', JSON.stringify(updatedUsers), true);
     setCurrentUser(newUser);
     setShowAuth(false);
     notify('Compte cree avec succes');
@@ -211,7 +212,9 @@ export default function JerseyShop() {
       customer: { name: customerName, email: customerEmail, phone: customerPhone, address: customerAddress, city: customerCity, postal: customerPostal },
       userId: currentUser.id
     };
-    setOrders([...orders, order]);
+    const updatedOrders = [...orders, order];
+    setOrders(updatedOrders);
+    window.storage.set('shop_orders', JSON.stringify(updatedOrders), true);
     setCart([]);
     setCustomerName('');
     setCustomerEmail('');
@@ -288,7 +291,9 @@ export default function JerseyShop() {
 
   const deleteProduct = (id) => {
     if (window.confirm('Supprimer ce produit ?')) {
-      setProducts(products.filter(p => p.id !== id));
+      const updatedProducts = products.filter(p => p.id !== id);
+      setProducts(updatedProducts);
+      window.storage.set('shop_products', JSON.stringify(updatedProducts), true);
       notify('Produit supprime');
     }
   };
