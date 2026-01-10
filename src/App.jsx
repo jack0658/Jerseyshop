@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ShoppingCart, User, Search, Star, Plus, Minus, X, Shield, Package, BarChart, CreditCard, Edit, Trash2, LogOut, Upload } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const ADMIN_EMAIL = "admin@jerseyshop.com";
 const ADMIN_PASSWORD = "admin123";
@@ -19,7 +20,6 @@ export default function JerseyShop() {
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState('M');
@@ -53,38 +53,24 @@ export default function JerseyShop() {
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerCity, setCustomerCity] = useState('');
   const [customerPostal, setCustomerPostal] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Chargement des données partagées depuis le stockage persistant
-  React.useEffect(() => {
-    loadAllData();
+  // Chargement initial
+  useEffect(() => {
+    loadData();
   }, []);
 
-  const loadAllData = async () => {
+  const loadData = async () => {
     try {
-      // Charger les produits
-      const productsResult = await window.storage.get('shop_products', true);
-      if (productsResult?.value) {
-        setProducts(JSON.parse(productsResult.value));
-      } else {
-        // Initialiser avec les produits par défaut si vide
-        setProducts(INITIAL_PRODUCTS);
-        await window.storage.set('shop_products', JSON.stringify(INITIAL_PRODUCTS), true);
-      }
+      const { data: productsData } = await supabase.from('products').select('*');
+      const { data: ordersData } = await supabase.from('orders').select('*');
+      const { data: usersData } = await supabase.from('users').select('*');
 
-      // Charger les commandes
-      const ordersResult = await window.storage.get('shop_orders', true);
-      if (ordersResult?.value) {
-        setOrders(JSON.parse(ordersResult.value));
-      }
-
-      // Charger les utilisateurs
-      const usersResult = await window.storage.get('shop_users', true);
-      if (usersResult?.value) {
-        setUsers(JSON.parse(usersResult.value));
-      }
+      setProducts(productsData || []);
+      setOrders(ordersData || []);
+      setUsers(usersData || []);
     } catch (error) {
-      console.log('Initialisation:', error);
-      setProducts(INITIAL_PRODUCTS);
+      console.error('Erreur:', error);
     }
     setLoading(false);
   };
@@ -116,7 +102,7 @@ export default function JerseyShop() {
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (loginEmail === ADMIN_EMAIL && loginPassword === ADMIN_PASSWORD) {
       setCurrentUser({ id: 'admin', email: ADMIN_EMAIL, name: 'Admin', isAdmin: true });
       setShowAuth(false);
@@ -138,7 +124,7 @@ export default function JerseyShop() {
     }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!registerName || !registerEmail || !registerPassword) {
       notify('Veuillez remplir tous les champs');
       return;
@@ -151,16 +137,17 @@ export default function JerseyShop() {
       notify('Cet email est deja utilise');
       return;
     }
+
     const newUser = {
       id: Date.now(),
       name: registerName,
       email: registerEmail,
       password: registerPassword,
-      isAdmin: false
+      is_admin: false
     };
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    window.storage.set('shop_users', JSON.stringify(updatedUsers), true);
+
+    await supabase.from('users').insert([newUser]);
+    setUsers([...users, newUser]);
     setCurrentUser(newUser);
     setShowAuth(false);
     notify('Compte cree avec succes');
@@ -194,7 +181,7 @@ export default function JerseyShop() {
   const getTotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2);
   const getCount = () => cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (!currentUser) {
       notify('Veuillez vous connecter');
       setShowAuth(true);
@@ -204,17 +191,18 @@ export default function JerseyShop() {
       notify('Veuillez remplir tous les champs');
       return;
     }
+
     const order = {
       id: Date.now(),
       date: new Date().toLocaleString('fr-FR'),
-      items: [...cart],
+      items: cart,
       total: getTotal(),
       customer: { name: customerName, email: customerEmail, phone: customerPhone, address: customerAddress, city: customerCity, postal: customerPostal },
-      userId: currentUser.id
+      user_id: currentUser.id.toString()
     };
-    const updatedOrders = [...orders, order];
-    setOrders(updatedOrders);
-    window.storage.set('shop_orders', JSON.stringify(updatedOrders), true);
+
+    await supabase.from('orders').insert([order]);
+    setOrders([order, ...orders]);
     setCart([]);
     setCustomerName('');
     setCustomerEmail('');
@@ -252,15 +240,14 @@ export default function JerseyShop() {
     setShowProductForm(true);
   };
 
-  const saveProduct = () => {
+  const saveProduct = async () => {
     if (!productName || !productClub || !productPrice || !productCost || !productImage) {
       notify('Veuillez remplir tous les champs et ajouter une image');
       return;
     }
-    
+
     if (editingProduct) {
-      const updatedProducts = products.map(p => p.id === editingProduct.id ? {
-        ...p,
+      const updatedProduct = {
         name: productName,
         club: productClub,
         price: parseFloat(productPrice),
@@ -268,8 +255,10 @@ export default function JerseyShop() {
         category: productCategory,
         image: productImage,
         stock: parseInt(productStock)
-      } : p);
-      setProducts(updatedProducts);
+      };
+
+      await supabase.from('products').update(updatedProduct).eq('id', editingProduct.id);
+      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...updatedProduct } : p));
       notify('Produit modifie');
     } else {
       const newProduct = {
@@ -283,22 +272,26 @@ export default function JerseyShop() {
         stock: parseInt(productStock),
         rating: 4.5
       };
-      setProducts([...products, newProduct]);
+
+      await supabase.from('products').insert([newProduct]);
+      setProducts([newProduct, ...products]);
       notify('Produit ajoute');
     }
     setShowProductForm(false);
   };
 
-  const deleteProduct = (id) => {
-    if (window.confirm('Supprimer ce produit ?')) {
-      const updatedProducts = products.filter(p => p.id !== id);
-      setProducts(updatedProducts);
-      window.storage.set('shop_products', JSON.stringify(updatedProducts), true);
-      notify('Produit supprime');
-    }
+  const deleteProduct = async (id) => {
+    if (!window.confirm('Supprimer ce produit ?')) return;
+
+    await supabase.from('products').delete().eq('id', id);
+    setProducts(products.filter(p => p.id !== id));
+    notify('Produit supprime');
   };
 
-  const Header = () => (
+  // Le reste du code (Header, render, etc.) reste identique à votre artefact actuel
+  // ...
+}
+const Header = () => (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
@@ -898,4 +891,3 @@ export default function JerseyShop() {
   }
 
   return <div><Header /></div>;
-}
