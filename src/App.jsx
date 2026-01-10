@@ -14,30 +14,11 @@ const INITIAL_PRODUCTS = [
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 export default function JerseyShop() {
-  // Fonction helper pour le localStorage
-  const getFromStorage = (key, defaultValue) => {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
-    } catch (error) {
-      console.error(`Error reading ${key} from localStorage:`, error);
-      return defaultValue;
-    }
-  };
-
-  const saveToStorage = (key, value) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.error(`Error saving ${key} to localStorage:`, error);
-    }
-  };
-
   const [page, setPage] = useState('home');
-  const [products, setProducts] = useState(() => getFromStorage('products', INITIAL_PRODUCTS));
-  const [orders, setOrders] = useState(() => getFromStorage('orders', []));
-  const [users, setUsers] = useState(() => getFromStorage('users', []));
-  const [currentUser, setCurrentUser] = useState(() => getFromStorage('currentUser', null));
+  const [products, setProducts] = useState(INITIAL_PRODUCTS);
+  const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [cart, setCart] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState('M');
@@ -71,23 +52,6 @@ export default function JerseyShop() {
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerCity, setCustomerCity] = useState('');
   const [customerPostal, setCustomerPostal] = useState('');
-
-  // Sauvegarde dans localStorage avec gestion d'erreur
-  React.useEffect(() => {
-    saveToStorage('products', products);
-  }, [products]);
-
-  React.useEffect(() => {
-    saveToStorage('orders', orders);
-  }, [orders]);
-
-  React.useEffect(() => {
-    saveToStorage('users', users);
-  }, [users]);
-
-  React.useEffect(() => {
-    saveToStorage('currentUser', currentUser);
-  }, [currentUser]);
 
   const filteredProducts = products.filter(p => 
     searchTerm === '' || 
