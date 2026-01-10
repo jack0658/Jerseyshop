@@ -14,11 +14,31 @@ const INITIAL_PRODUCTS = [
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 export default function JerseyShop() {
+  // Fonction de stockage sécurisée
+  const getStoredData = (key, defaultValue) => {
+    if (typeof window === 'undefined') return defaultValue;
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  };
+
+  const saveData = (key, value) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error('Erreur sauvegarde:', error);
+    }
+  };
+
   const [page, setPage] = useState('home');
-  const [products, setProducts] = useState(INITIAL_PRODUCTS);
-  const [orders, setOrders] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [products, setProducts] = useState(() => getStoredData('jerseyshop_products', INITIAL_PRODUCTS));
+  const [orders, setOrders] = useState(() => getStoredData('jerseyshop_orders', []));
+  const [users, setUsers] = useState(() => getStoredData('jerseyshop_users', []));
+  const [currentUser, setCurrentUser] = useState(() => getStoredData('jerseyshop_currentUser', null));
   const [cart, setCart] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState('M');
@@ -52,6 +72,23 @@ export default function JerseyShop() {
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerCity, setCustomerCity] = useState('');
   const [customerPostal, setCustomerPostal] = useState('');
+
+  // Sauvegarde automatique dans localStorage
+  React.useEffect(() => {
+    saveData('jerseyshop_products', products);
+  }, [products]);
+
+  React.useEffect(() => {
+    saveData('jerseyshop_orders', orders);
+  }, [orders]);
+
+  React.useEffect(() => {
+    saveData('jerseyshop_users', users);
+  }, [users]);
+
+  React.useEffect(() => {
+    saveData('jerseyshop_currentUser', currentUser);
+  }, [currentUser]);
 
   const filteredProducts = products.filter(p => 
     searchTerm === '' || 
