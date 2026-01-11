@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ShoppingCart, User, Search, Star, Plus, Minus, X, Shield, Package, BarChart, CreditCard, Edit, Trash2, LogOut, Upload } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration Supabase
-const SUPABASE_URL = 'https://fgbrugisdbpnddzdwfzw.supabase.co'; // À remplacer par votre URL Supabase
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnYnJ1Z2lzZGJwbmRkemR3Znp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMjM1MDksImV4cCI6MjA4MzY5OTUwOX0.9LbN25-QyoJpWsVgPcMZrvqZbgwsGhvEO5_ikKlB2u4'; // À remplacer par votre clé anonyme
+const SUPABASE_URL = 'VOTRE_SUPABASE_URL'; // À remplacer par votre URL Supabase
+const SUPABASE_ANON_KEY = 'VOTRE_SUPABASE_ANON_KEY'; // À remplacer par votre clé anonyme
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -60,15 +60,8 @@ export default function JerseyShop() {
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Charger les données au démarrage
-  useEffect(() => {
-    checkUser();
-    loadProducts();
-    loadOrders();
-  }, []);
-
   // Vérifier l'utilisateur connecté
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const isAdmin = user.email === ADMIN_EMAIL;
@@ -80,10 +73,25 @@ export default function JerseyShop() {
       });
     }
     setLoading(false);
-  };
+  }, []);
+
+  // Initialiser les produits par défaut
+  const initializeProducts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .insert(INITIAL_PRODUCTS)
+        .select();
+
+      if (error) throw error;
+      if (data) setProducts(data);
+    } catch (error) {
+      console.error('Erreur initialisation produits:', error);
+    }
+  }, []);
 
   // Charger les produits depuis Supabase
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('products')
@@ -102,25 +110,10 @@ export default function JerseyShop() {
       console.error('Erreur chargement produits:', error);
       setProducts(INITIAL_PRODUCTS);
     }
-  };
-
-  // Initialiser les produits par défaut
-  const initializeProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .insert(INITIAL_PRODUCTS)
-        .select();
-
-      if (error) throw error;
-      if (data) setProducts(data);
-    } catch (error) {
-      console.error('Erreur initialisation produits:', error);
-    }
-  };
+  }, [initializeProducts]);
 
   // Charger les commandes depuis Supabase
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -132,7 +125,14 @@ export default function JerseyShop() {
     } catch (error) {
       console.error('Erreur chargement commandes:', error);
     }
-  };
+  }, []);
+
+  // Charger les données au démarrage
+  useEffect(() => {
+    checkUser();
+    loadProducts();
+    loadOrders();
+  }, [checkUser, loadProducts, loadOrders]);
 
   const filteredProducts = products.filter(p => 
     searchTerm === '' || 
