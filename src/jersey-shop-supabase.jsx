@@ -3,8 +3,8 @@ import { ShoppingCart, User, Search, Star, Plus, Minus, X, Shield, Package, BarC
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration Supabase
-const SUPABASE_URL = 'VOTRE_SUPABASE_URL'; // À remplacer par votre URL Supabase
-const SUPABASE_ANON_KEY = 'VOTRE_SUPABASE_ANON_KEY'; // À remplacer par votre clé anonyme
+const SUPABASE_URL = 'Vhttps://fgbrugisdbpnddzdwfzw.supabase.co'; // À remplacer par votre URL Supabase
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnYnJ1Z2lzZGJwbmRkemR3Znp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMjM1MDksImV4cCI6MjA4MzY5OTUwOX0.9LbN25-QyoJpWsVgPcMZrvqZbgwsGhvEO5_ikKlB2u4'; // À remplacer par votre clé anonyme
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
