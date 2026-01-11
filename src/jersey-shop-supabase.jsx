@@ -1,9 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ShoppingCart, User, Search, Star, Plus, Minus, X, Shield, Package, BarChart, CreditCard, Edit, Trash2, LogOut, Upload } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
+
+// Configuration Supabase
+const SUPABASE_URL = 'https://fgbrugisdbpnddzdwfzw.supabase.co'; // À remplacer par votre URL Supabase
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnYnJ1Z2lzZGJwbmRkemR3Znp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMjM1MDksImV4cCI6MjA4MzY5OTUwOX0.9LbN25-QyoJpWsVgPcMZrvqZbgwsGhvEO5_ikKlB2u4'; // À remplacer par votre clé anonyme
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ADMIN_EMAIL = "admin@jerseyshop.com";
-const ADMIN_PASSWORD = "admin123";
 
 const INITIAL_PRODUCTS = [
   { id: 1, name: "Maillot PSG Domicile 2024", club: "PSG", price: 89.99, cost: 45.00, category: "Domicile", image: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400", stock: 100, rating: 4.8 },
@@ -18,7 +23,6 @@ export default function JerseyShop() {
   const [page, setPage] = useState('home');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [cart, setCart] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -54,25 +58,80 @@ export default function JerseyShop() {
   const [customerCity, setCustomerCity] = useState('');
   const [customerPostal, setCustomerPostal] = useState('');
   const [loading, setLoading] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Chargement initial
+  // Charger les données au démarrage
   useEffect(() => {
-    loadData();
+    checkUser();
+    loadProducts();
+    loadOrders();
   }, []);
 
-  const loadData = async () => {
-    try {
-      const { data: productsData } = await supabase.from('products').select('*');
-      const { data: ordersData } = await supabase.from('orders').select('*');
-      const { data: usersData } = await supabase.from('users').select('*');
-
-      setProducts(productsData || []);
-      setOrders(ordersData || []);
-      setUsers(usersData || []);
-    } catch (error) {
-      console.error('Erreur:', error);
+  // Vérifier l'utilisateur connecté
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const isAdmin = user.email === ADMIN_EMAIL;
+      setCurrentUser({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email,
+        isAdmin
+      });
     }
     setLoading(false);
+  };
+
+  // Charger les produits depuis Supabase
+  const loadProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setProducts(data);
+      } else {
+        // Initialiser avec les produits par défaut
+        await initializeProducts();
+      }
+    } catch (error) {
+      console.error('Erreur chargement produits:', error);
+      setProducts(INITIAL_PRODUCTS);
+    }
+  };
+
+  // Initialiser les produits par défaut
+  const initializeProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .insert(INITIAL_PRODUCTS)
+        .select();
+
+      if (error) throw error;
+      if (data) setProducts(data);
+    } catch (error) {
+      console.error('Erreur initialisation produits:', error);
+    }
+  };
+
+  // Charger les commandes depuis Supabase
+  const loadOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Erreur chargement commandes:', error);
+    }
   };
 
   const filteredProducts = products.filter(p => 
@@ -86,86 +145,126 @@ export default function JerseyShop() {
     setTimeout(() => setNotification(''), 3000);
   };
 
-  const handleImageUpload = (e) => {
+  // Upload d'image vers Supabase Storage
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5000000) {
-        notify('Image trop volumineuse (max 5MB)');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProductImage(reader.result);
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > 5000000) {
+      notify('Image trop volumineuse (max 5MB)');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      setProductImage(data.publicUrl);
+      setImagePreview(data.publicUrl);
+      notify('Image uploadée avec succès');
+    } catch (error) {
+      console.error('Erreur upload image:', error);
+      notify('Erreur lors de l\'upload de l\'image');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
+  // Connexion avec Supabase Auth
   const handleLogin = async () => {
-    if (loginEmail === ADMIN_EMAIL && loginPassword === ADMIN_PASSWORD) {
-      setCurrentUser({ id: 'admin', email: ADMIN_EMAIL, name: 'Admin', isAdmin: true });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (error) throw error;
+
+      const isAdmin = data.user.email === ADMIN_EMAIL;
+      setCurrentUser({
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata?.name || data.user.email,
+        isAdmin
+      });
+
       setShowAuth(false);
-      setPage('admin');
-      notify('Connexion admin reussie');
+      if (isAdmin) setPage('admin');
+      notify('Connexion réussie');
       setLoginEmail('');
       setLoginPassword('');
-    } else {
-      const user = users.find(u => u.email === loginEmail && u.password === loginPassword);
-      if (user) {
-        setCurrentUser(user);
-        setShowAuth(false);
-        notify('Connexion reussie');
-        setLoginEmail('');
-        setLoginPassword('');
-      } else {
-        notify('Email ou mot de passe incorrect');
-      }
+    } catch (error) {
+      console.error('Erreur connexion:', error);
+      notify(error.message || 'Email ou mot de passe incorrect');
     }
   };
 
+  // Inscription avec Supabase Auth
   const handleRegister = async () => {
     if (!registerName || !registerEmail || !registerPassword) {
       notify('Veuillez remplir tous les champs');
       return;
     }
     if (registerPassword.length < 6) {
-      notify('Le mot de passe doit contenir au moins 6 caracteres');
-      return;
-    }
-    if (users.find(u => u.email === registerEmail)) {
-      notify('Cet email est deja utilise');
+      notify('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
-    const newUser = {
-      id: Date.now(),
-      name: registerName,
-      email: registerEmail,
-      password: registerPassword,
-      is_admin: false
-    };
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: registerEmail,
+        password: registerPassword,
+        options: {
+          data: {
+            name: registerName,
+          }
+        }
+      });
 
-    await supabase.from('users').insert([newUser]);
-    setUsers([...users, newUser]);
-    setCurrentUser(newUser);
-    setShowAuth(false);
-    notify('Compte cree avec succes');
-    setRegisterName('');
-    setRegisterEmail('');
-    setRegisterPassword('');
+      if (error) throw error;
+
+      setCurrentUser({
+        id: data.user.id,
+        email: data.user.email,
+        name: registerName,
+        isAdmin: false
+      });
+
+      setShowAuth(false);
+      notify('Compte créé avec succès');
+      setRegisterName('');
+      setRegisterEmail('');
+      setRegisterPassword('');
+    } catch (error) {
+      console.error('Erreur inscription:', error);
+      notify(error.message || 'Erreur lors de l\'inscription');
+    }
   };
 
-  const logout = () => {
+  // Déconnexion
+  const logout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     setShowUserMenu(false);
     setPage('home');
-    notify('Deconnexion reussie');
+    notify('Déconnexion réussie');
   };
 
   const addToCart = (product, size, qty) => {
     setCart([...cart, { ...product, size, quantity: qty, cartId: Date.now() }]);
-    notify('Ajoute au panier');
+    notify('Ajouté au panier');
     setShowCart(true);
   };
 
@@ -181,6 +280,7 @@ export default function JerseyShop() {
   const getTotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2);
   const getCount = () => cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Passer une commande
   const placeOrder = async () => {
     if (!currentUser) {
       notify('Veuillez vous connecter');
@@ -192,26 +292,40 @@ export default function JerseyShop() {
       return;
     }
 
-    const order = {
-      id: Date.now(),
-      date: new Date().toLocaleString('fr-FR'),
-      items: cart,
-      total: getTotal(),
-      customer: { name: customerName, email: customerEmail, phone: customerPhone, address: customerAddress, city: customerCity, postal: customerPostal },
-      user_id: currentUser.id.toString()
-    };
+    try {
+      const orderData = {
+        user_id: currentUser.id,
+        items: cart,
+        total: parseFloat(getTotal()),
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        customer_address: customerAddress,
+        customer_city: customerCity,
+        customer_postal: customerPostal,
+      };
 
-    await supabase.from('orders').insert([order]);
-    setOrders([order, ...orders]);
-    setCart([]);
-    setCustomerName('');
-    setCustomerEmail('');
-    setCustomerPhone('');
-    setCustomerAddress('');
-    setCustomerCity('');
-    setCustomerPostal('');
-    setPage('confirmation');
-    notify('Commande validee');
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([orderData])
+        .select();
+
+      if (error) throw error;
+
+      setOrders([data[0], ...orders]);
+      setCart([]);
+      setCustomerName('');
+      setCustomerEmail('');
+      setCustomerPhone('');
+      setCustomerAddress('');
+      setCustomerCity('');
+      setCustomerPostal('');
+      setPage('confirmation');
+      notify('Commande validée');
+    } catch (error) {
+      console.error('Erreur commande:', error);
+      notify('Erreur lors de la commande');
+    }
   };
 
   const openAddProduct = () => {
@@ -240,58 +354,83 @@ export default function JerseyShop() {
     setShowProductForm(true);
   };
 
+  // Sauvegarder un produit
   const saveProduct = async () => {
     if (!productName || !productClub || !productPrice || !productCost || !productImage) {
       notify('Veuillez remplir tous les champs et ajouter une image');
       return;
     }
+    
+    try {
+      if (editingProduct) {
+        const { data, error } = await supabase
+          .from('products')
+          .update({
+            name: productName,
+            club: productClub,
+            price: parseFloat(productPrice),
+            cost: parseFloat(productCost),
+            category: productCategory,
+            image: productImage,
+            stock: parseInt(productStock)
+          })
+          .eq('id', editingProduct.id)
+          .select();
 
-    if (editingProduct) {
-      const updatedProduct = {
-        name: productName,
-        club: productClub,
-        price: parseFloat(productPrice),
-        cost: parseFloat(productCost),
-        category: productCategory,
-        image: productImage,
-        stock: parseInt(productStock)
-      };
+        if (error) throw error;
 
-      await supabase.from('products').update(updatedProduct).eq('id', editingProduct.id);
-      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...updatedProduct } : p));
-      notify('Produit modifie');
-    } else {
-      const newProduct = {
-        id: Date.now(),
-        name: productName,
-        club: productClub,
-        price: parseFloat(productPrice),
-        cost: parseFloat(productCost),
-        category: productCategory,
-        image: productImage,
-        stock: parseInt(productStock),
-        rating: 4.5
-      };
+        setProducts(products.map(p => p.id === editingProduct.id ? data[0] : p));
+        notify('Produit modifié');
+      } else {
+        const newProduct = {
+          name: productName,
+          club: productClub,
+          price: parseFloat(productPrice),
+          cost: parseFloat(productCost),
+          category: productCategory,
+          image: productImage,
+          stock: parseInt(productStock),
+          rating: 4.5
+        };
 
-      await supabase.from('products').insert([newProduct]);
-      setProducts([newProduct, ...products]);
-      notify('Produit ajoute');
+        const { data, error } = await supabase
+          .from('products')
+          .insert([newProduct])
+          .select();
+
+        if (error) throw error;
+
+        setProducts([...products, data[0]]);
+        notify('Produit ajouté');
+      }
+      setShowProductForm(false);
+    } catch (error) {
+      console.error('Erreur sauvegarde produit:', error);
+      notify('Erreur lors de la sauvegarde');
     }
-    setShowProductForm(false);
   };
 
+  // Supprimer un produit
   const deleteProduct = async (id) => {
     if (!window.confirm('Supprimer ce produit ?')) return;
 
-    await supabase.from('products').delete().eq('id', id);
-    setProducts(products.filter(p => p.id !== id));
-    notify('Produit supprime');
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setProducts(products.filter(p => p.id !== id));
+      notify('Produit supprimé');
+    } catch (error) {
+      console.error('Erreur suppression produit:', error);
+      notify('Erreur lors de la suppression');
+    }
   };
 
-  // Le reste du code (Header, render, etc.) reste identique à votre artefact actuel
-  // ...
-}
-const Header = () => (
+  const Header = () => (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
@@ -340,7 +479,7 @@ const Header = () => (
                     </button>
                   )}
                   <button onClick={logout} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600 flex items-center gap-2">
-                    <LogOut size={16} /> Deconnexion
+                    <LogOut size={16} /> Déconnexion
                   </button>
                 </div>
               )}
@@ -355,6 +494,17 @@ const Header = () => (
       )}
     </header>
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (showAuth) {
     return (
@@ -382,7 +532,7 @@ const Header = () => (
                   Se connecter
                 </button>
                 <button onClick={() => setAuthMode('register')} className="w-full text-sm text-blue-600 hover:underline">
-                  Pas de compte ? S inscrire
+                  Pas de compte ? S'inscrire
                 </button>
               </div>
             ) : (
@@ -396,14 +546,14 @@ const Header = () => (
                   <input type="email" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Mot de passe (min 6 caracteres)</label>
+                  <label className="block text-sm font-medium mb-2">Mot de passe (min 6 caractères)</label>
                   <input type="password" value={registerPassword} onChange={(e) => setRegisterPassword(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
                 </div>
                 <button onClick={handleRegister} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
-                  Creer mon compte
+                  Créer mon compte
                 </button>
                 <button onClick={() => setAuthMode('login')} className="w-full text-sm text-blue-600 hover:underline">
-                  Deja un compte ? Se connecter
+                  Déjà un compte ? Se connecter
                 </button>
               </div>
             )}
@@ -431,7 +581,7 @@ const Header = () => (
                   <ShoppingCart size={64} className="mx-auto text-gray-300 mb-4" />
                   <p className="text-gray-500 mb-4">Votre panier est vide</p>
                   <button onClick={() => { setShowCart(false); setPage('shop'); }} className="bg-blue-600 text-white px-6 py-3 rounded-lg">
-                    Decouvrir
+                    Découvrir
                   </button>
                 </div>
               ) : (
@@ -508,10 +658,10 @@ const Header = () => (
                       <Upload className="text-gray-400" size={32} />
                     </div>
                   )}
-                  <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 flex items-center gap-2">
+                  <label className={`cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 flex items-center gap-2 ${uploadingImage ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <Upload size={18} />
-                    Choisir une image
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                    {uploadingImage ? 'Upload en cours...' : 'Choisir une image'}
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
                   </label>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">JPG, PNG ou GIF (max 5MB)</p>
@@ -536,10 +686,10 @@ const Header = () => (
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Categorie</label>
+                  <label className="block text-sm font-medium mb-2">Catégorie</label>
                   <select value={productCategory} onChange={(e) => setProductCategory(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600">
                     <option value="Domicile">Domicile</option>
-                    <option value="Exterieur">Exterieur</option>
+                    <option value="Exterieur">Extérieur</option>
                   </select>
                 </div>
                 <div>
@@ -549,11 +699,11 @@ const Header = () => (
               </div>
               {productPrice && productCost && (
                 <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-green-700 font-semibold">Marge prevue: {(parseFloat(productPrice) - parseFloat(productCost)).toFixed(2)}€</p>
+                  <p className="text-green-700 font-semibold">Marge prévue: {(parseFloat(productPrice) - parseFloat(productCost)).toFixed(2)}€</p>
                 </div>
               )}
               <div className="flex gap-4 pt-4">
-                <button onClick={saveProduct} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">
+                <button onClick={saveProduct} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700" disabled={uploadingImage}>
                   {editingProduct ? 'Modifier' : 'Ajouter'}
                 </button>
                 <button onClick={() => setShowProductForm(false)} className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300">
@@ -601,7 +751,7 @@ const Header = () => (
                         <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
                       </div>
                       <h3 className="font-semibold text-sm mb-2 line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
-                      <p className="text-xs text-gray-600 mb-2">Prix: {p.price}€ | Cout: {p.cost}€</p>
+                      <p className="text-xs text-gray-600 mb-2">Prix: {p.price}€ | Coût: {p.cost}€</p>
                       <p className="text-green-600 font-semibold text-sm mb-3">Marge: {(p.price - p.cost).toFixed(2)}€</p>
                       <div className="flex gap-2">
                         <button onClick={() => openEditProduct(p)} className="flex-1 bg-blue-100 text-blue-600 py-1.5 rounded-lg hover:bg-blue-200 flex items-center justify-center gap-1 text-sm">
@@ -630,11 +780,11 @@ const Header = () => (
                         <div className="flex justify-between">
                           <div>
                             <h3 className="font-bold">Commande #{order.id}</h3>
-                            <p className="text-sm text-gray-600">{order.date} - {order.customer.name}</p>
+                            <p className="text-sm text-gray-600">{new Date(order.created_at).toLocaleString('fr-FR')} - {order.customer_name}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xl font-bold text-blue-600">{order.total}€</p>
-                            <p className="text-green-600 text-sm">Profit: {(parseFloat(order.total) - order.items.reduce((s,i) => s + (i.cost * i.quantity), 0)).toFixed(2)}€</p>
+                            <p className="text-xl font-bold text-blue-600">{order.total.toFixed(2)}€</p>
+                            <p className="text-green-600 text-sm">Profit: {(order.total - order.items.reduce((s,i) => s + (i.cost * i.quantity), 0)).toFixed(2)}€</p>
                           </div>
                         </div>
                       </div>
@@ -660,12 +810,12 @@ const Header = () => (
                   <div className="bg-white rounded-lg p-6">
                     <CreditCard className="text-purple-600 mb-2" size={32} />
                     <p className="text-gray-600">Revenus</p>
-                    <p className="text-2xl font-bold">{orders.reduce((s, o) => s + parseFloat(o.total), 0).toFixed(2)}€</p>
+                    <p className="text-2xl font-bold">{orders.reduce((s, o) => s + o.total, 0).toFixed(2)}€</p>
                   </div>
                   <div className="bg-white rounded-lg p-6">
                     <BarChart className="text-orange-600 mb-2" size={32} />
                     <p className="text-gray-600">Profit</p>
-                    <p className="text-2xl font-bold text-green-600">{orders.reduce((sum, o) => sum + (parseFloat(o.total) - o.items.reduce((s,i) => s + (i.cost * i.quantity), 0)), 0).toFixed(2)}€</p>
+                    <p className="text-2xl font-bold text-green-600">{orders.reduce((sum, o) => sum + (o.total - o.items.reduce((s,i) => s + (i.cost * i.quantity), 0)), 0).toFixed(2)}€</p>
                   </div>
                 </div>
               </div>
@@ -684,9 +834,9 @@ const Header = () => (
           <div className="container mx-auto px-4 h-full flex items-center">
             <div className="text-white">
               <h1 className="text-5xl font-bold mb-4">MAILLOTS 2024</h1>
-              <p className="text-xl mb-8">Les plus grands clubs europeens</p>
+              <p className="text-xl mb-8">Les plus grands clubs européens</p>
               <button onClick={() => setPage('shop')} className="bg-white text-gray-900 px-8 py-3 rounded-lg font-bold">
-                Decouvrir
+                Découvrir
               </button>
             </div>
           </div>
@@ -696,9 +846,9 @@ const Header = () => (
             <h2 className="text-3xl font-bold mb-8 text-center">Nos Produits</h2>
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500 text-xl">Aucun produit trouve</p>
+                <p className="text-gray-500 text-xl">Aucun produit trouvé</p>
                 <button onClick={() => setSearchTerm('')} className="mt-4 text-blue-600 hover:underline">
-                  Reinitialiser la recherche
+                  Réinitialiser la recherche
                 </button>
               </div>
             ) : (
@@ -737,9 +887,9 @@ const Header = () => (
             <h1 className="text-4xl font-bold mb-8">BOUTIQUE</h1>
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500 text-xl">Aucun produit trouve</p>
+                <p className="text-gray-500 text-xl">Aucun produit trouvé</p>
                 <button onClick={() => setSearchTerm('')} className="mt-4 text-blue-600 hover:underline">
-                  Reinitialiser la recherche
+                  Réinitialiser la recherche
                 </button>
               </div>
             ) : (
@@ -788,7 +938,7 @@ const Header = () => (
                   </div>
                 </div>
                 <div className="mb-8">
-                  <label className="block font-semibold mb-3">Quantite</label>
+                  <label className="block font-semibold mb-3">Quantité</label>
                   <div className="flex items-center gap-4">
                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-12 border-2 rounded flex items-center justify-center">
                       <Minus size={20} />
@@ -804,7 +954,7 @@ const Header = () => (
                 </button>
                 <div className="flex items-center gap-3">
                   <Shield size={20} className="text-green-600" />
-                  <span className="text-sm">Paiement securise</span>
+                  <span className="text-sm">Paiement sécurisé</span>
                 </div>
               </div>
             </div>
@@ -829,7 +979,7 @@ const Header = () => (
                     <input type="text" placeholder="Nom complet" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
                     <div className="grid md:grid-cols-2 gap-4">
                       <input type="email" placeholder="Email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                      <input type="tel" placeholder="Telephone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
+                      <input type="tel" placeholder="Téléphone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
                     </div>
                     <input type="text" placeholder="Adresse" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
                     <div className="grid md:grid-cols-2 gap-4">
@@ -841,7 +991,7 @@ const Header = () => (
               </div>
               <div>
                 <div className="bg-white rounded-lg p-6 sticky top-24">
-                  <h2 className="text-lg font-bold mb-4">RECAPITULATIF</h2>
+                  <h2 className="text-lg font-bold mb-4">RÉCAPITULATIF</h2>
                   <div className="space-y-3 mb-4 pb-4 border-b">
                     {cart.map(item => (
                       <div key={item.cartId} className="flex justify-between text-sm">
@@ -878,10 +1028,10 @@ const Header = () => (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h1 className="text-4xl font-bold mb-4">Commande confirmee !</h1>
+              <h1 className="text-4xl font-bold mb-4">Commande confirmée !</h1>
               <p className="text-xl text-gray-600 mb-8">Merci pour votre achat</p>
               <button onClick={() => setPage('home')} className="bg-black text-white px-8 py-4 rounded-lg font-bold">
-                RETOUR A L ACCUEIL
+                RETOUR À L'ACCUEIL
               </button>
             </div>
           </div>
@@ -891,5 +1041,4 @@ const Header = () => (
   }
 
   return <div><Header /></div>;
-
-
+}

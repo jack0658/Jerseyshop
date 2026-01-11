@@ -1,57 +1,6 @@
-// Copie simple du client Supabase sans import
-export const supabase = {
-  from: (table) => ({
-    select: async (query = '*') => {
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}?select=${query}`;
-      const response = await fetch(url, {
-        headers: {
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-        }
-      });
-      return { data: await response.json(), error: null };
-    },
-    insert: async (data) => {
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(data)
-      });
-      return { data: await response.json(), error: null };
-    },
-    update: (data) => ({
-      eq: async (column, value) => {
-        const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}?${column}=eq.${value}`;
-        const response = await fetch(url, {
-          method: 'PATCH',
-          headers: {
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data)
-        });
-        return { error: null };
-      }
-    }),
-    delete: () => ({
-      eq: async (column, value) => {
-        const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}?${column}=eq.${value}`;
-        await fetch(url, {
-          method: 'DELETE',
-          headers: {
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-          }
-        });
-        return { error: null };
-      }
-    })
-  })
-};
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
