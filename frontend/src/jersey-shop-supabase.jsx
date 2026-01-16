@@ -20,7 +20,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // stripePromise pourrait être utilisé pour Stripe Elements dans le futur
 // eslint-disable-next-line no-unused-vars
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '');
 
 const ADMIN_EMAIL = "admin@jerseyshop.com";
 
