@@ -1037,7 +1037,7 @@ export default function JerseyShop() {
         <section className="relative h-96 bg-gradient-to-r from-gray-900 to-gray-800">
           <div className="container mx-auto px-4 h-full flex items-center">
             <div className="text-white">
-              <h1 className="text-5xl font-bold mb-4">MAILLOTS 2024</h1>
+              <h1 className="text-5xl font-bold mb-4">MAILLOTS 2026</h1>
               <p className="text-xl mb-8">Les plus grands clubs européens</p>
               <button onClick={() => setPage('shop')} className="bg-white text-gray-900 px-8 py-3 rounded-lg font-bold">
                 Découvrir
