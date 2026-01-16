@@ -142,6 +142,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'JerseyShop API is running' });
 });
 
+// Route racine
+app.get('/', (req, res) => {
+  res.json({ 
+    name: 'JerseyShop API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      createCheckout: 'POST /create-checkout-session',
+      webhook: 'POST /webhook',
+      getSession: 'GET /checkout-session/:sessionId'
+    }
+  });
+});
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
