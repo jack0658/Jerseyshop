@@ -21,7 +21,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '');
 
-const ADMIN_EMAIL = "admin@nexora.com";
+const ADMIN_EMAIL = "admin@jerseyshop.com";
 
 const INITIAL_PRODUCTS = [
   { id: 1, name: "Écouteurs Sans Fil Pro", brand: "TechSound", price: 79.99, cost: 35.00, category: "Électronique", image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400", stock: 150, rating: 4.7 },
