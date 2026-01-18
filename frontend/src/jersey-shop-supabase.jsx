@@ -23,6 +23,13 @@ const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001
 
 const ADMIN_EMAIL = "admin@jerseyshop.com";
 
+const INITIAL_PRODUCTS = [
+  { id: 1, name: "Écouteurs Sans Fil Pro", brand: "TechSound", price: 79.99, cost: 35.00, category: "Électronique", image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400", stock: 150, rating: 4.7 },
+  { id: 2, name: "Sac à Dos Urbain Premium", brand: "UrbanStyle", price: 49.99, cost: 22.00, category: "Accessoires", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400", stock: 200, rating: 4.6 },
+  { id: 3, name: "Bouteille Isotherme 500ml", brand: "HydroFit", price: 29.99, cost: 12.00, category: "Sport & Fitness", image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400", stock: 300, rating: 4.8 },
+  { id: 4, name: "Lampe LED Bureau Design", brand: "LightHome", price: 39.99, cost: 18.00, category: "Maison & Déco", image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400", stock: 120, rating: 4.5 },
+];
+
 const CATEGORIES = ["Électronique", "Mode", "Accessoires", "Sport & Fitness", "Maison & Déco", "Beauté & Santé", "Gadgets"];
 
 export default function Nexora() {
