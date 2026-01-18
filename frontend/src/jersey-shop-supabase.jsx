@@ -17,34 +17,31 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 // Configuration Stripe
-// stripePromise pourrait être utilisé pour Stripe Elements dans le futur
 // eslint-disable-next-line no-unused-vars
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '');
 
-const ADMIN_EMAIL = "admin@jerseyshop.com";
+const ADMIN_EMAIL = "admin@nexora.com";
 
 const INITIAL_PRODUCTS = [
-  { id: 1, name: "Maillot PSG Domicile 2024", club: "PSG", price: 89.99, cost: 45.00, category: "Domicile", image: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400", stock: 100, rating: 4.8 },
-  { id: 2, name: "Maillot Real Madrid", club: "Real Madrid", price: 94.99, cost: 47.50, category: "Domicile", image: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400", stock: 75, rating: 4.9 },
-  { id: 3, name: "Maillot France", club: "France", price: 99.99, cost: 50.00, category: "Exterieur", image: "https://images.unsplash.com/photo-1606925797300-0b35e9d1794e?w=400", stock: 120, rating: 4.7 },
-  { id: 4, name: "Maillot Barcelona", club: "Barcelona", price: 89.99, cost: 44.00, category: "Domicile", image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400", stock: 90, rating: 4.8 },
+  { id: 1, name: "Écouteurs Sans Fil Pro", brand: "TechSound", price: 79.99, cost: 35.00, category: "Électronique", image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400", stock: 150, rating: 4.7 },
+  { id: 2, name: "Sac à Dos Urbain Premium", brand: "UrbanStyle", price: 49.99, cost: 22.00, category: "Accessoires", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400", stock: 200, rating: 4.6 },
+  { id: 3, name: "Bouteille Isotherme 500ml", brand: "HydroFit", price: 29.99, cost: 12.00, category: "Sport & Fitness", image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400", stock: 300, rating: 4.8 },
+  { id: 4, name: "Lampe LED Bureau Design", brand: "LightHome", price: 39.99, cost: 18.00, category: "Maison & Déco", image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400", stock: 120, rating: 4.5 },
 ];
 
-const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+const CATEGORIES = ["Électronique", "Mode", "Accessoires", "Sport & Fitness", "Maison & Déco", "Beauté & Santé", "Gadgets"];
 
-export default function JerseyShop() {
+export default function Nexora() {
   const [page, setPage] = useState('home');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [cart, setCart] = useState(() => {
-    // Charger le panier depuis localStorage
-    const savedCart = localStorage.getItem('jerseyshop_cart');
+    const savedCart = localStorage.getItem('nexora_cart');
     return savedCart ? JSON.parse(savedCart) : [];
   });
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedSize, setSelectedSize] = useState('M');
   const [quantity, setQuantity] = useState(1);
   const [showCart, setShowCart] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -62,10 +59,10 @@ export default function JerseyShop() {
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef(null);
   const [productName, setProductName] = useState('');
-  const [productClub, setProductClub] = useState('');
+  const [productBrand, setProductBrand] = useState('');
   const [productPrice, setProductPrice] = useState('');
   const [productCost, setProductCost] = useState('');
-  const [productCategory, setProductCategory] = useState('Domicile');
+  const [productCategory, setProductCategory] = useState('Électronique');
   const [productImage, setProductImage] = useState('');
   const [productStock, setProductStock] = useState('100');
   const [imagePreview, setImagePreview] = useState('');
@@ -78,9 +75,9 @@ export default function JerseyShop() {
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Sauvegarder le panier dans localStorage à chaque changement
+  // Sauvegarder le panier dans localStorage
   useEffect(() => {
-    localStorage.setItem('jerseyshop_cart', JSON.stringify(cart));
+    localStorage.setItem('nexora_cart', JSON.stringify(cart));
   }, [cart]);
 
   // Charger les données au démarrage
@@ -111,7 +108,6 @@ export default function JerseyShop() {
       }
     });
 
-    // Cleanup
     return () => {
       authListener?.subscription?.unsubscribe();
     };
@@ -125,16 +121,13 @@ export default function JerseyShop() {
     if (sessionId && page !== 'success') {
       console.log('🔄 Détection session Stripe:', sessionId);
       
-      // Changer la page en success
       setPage('success');
       
-      // Vérifier la session
       fetch(`${BACKEND_URL}/checkout-session/${sessionId}`)
         .then(res => res.json())
         .then(session => {
           console.log('✅ Session vérifiée:', session);
           if (session.payment_status === 'paid') {
-            // Nettoyer le panier et les informations client
             setCart([]);
             setCustomerName('');
             setCustomerEmail('');
@@ -143,21 +136,17 @@ export default function JerseyShop() {
             setCustomerCity('');
             setCustomerPostal('');
             
-            // Recharger les commandes
             loadOrders();
-            
-            // Nettoyer l'URL (enlever ?session_id=...)
             window.history.replaceState({}, '', '/');
           }
         })
         .catch(err => console.error('❌ Erreur vérification session:', err));
     }
-  }, [page, window.location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Vérifier l'utilisateur connecté
   const checkUser = async () => {
     try {
-      // Récupérer la session active
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
@@ -182,7 +171,7 @@ export default function JerseyShop() {
     }
   };
 
-  // Charger les produits depuis Supabase
+  // Charger les produits
   const loadProducts = async () => {
     try {
       const { data, error } = await supabase
@@ -191,11 +180,10 @@ export default function JerseyShop() {
         .order('id', { ascending: true });
 
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         setProducts(data);
       } else {
-        // Initialiser avec les produits par défaut
         await initializeProducts();
       }
     } catch (error) {
@@ -219,7 +207,7 @@ export default function JerseyShop() {
     }
   };
 
-  // Charger les commandes depuis Supabase
+  // Charger les commandes
   const loadOrders = async () => {
     try {
       const { data, error } = await supabase
@@ -237,7 +225,8 @@ export default function JerseyShop() {
   const filteredProducts = products.filter(p => 
     searchTerm === '' || 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.club.toLowerCase().includes(searchTerm.toLowerCase())
+    p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const notify = (msg) => {
@@ -246,17 +235,11 @@ export default function JerseyShop() {
   };
 
   // Upload d'image vers Supabase Storage
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
+  const uploadImage = async (file) => {
     if (!file) return;
 
-    if (file.size > 5000000) {
-      notify('Image trop volumineuse (max 5MB)');
-      return;
-    }
-
-    setUploadingImage(true);
     try {
+      setUploadingImage(true);
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `products/${fileName}`;
@@ -282,7 +265,7 @@ export default function JerseyShop() {
     }
   };
 
-  // Connexion avec Supabase Auth
+  // Connexion
   const handleLogin = async () => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -311,7 +294,7 @@ export default function JerseyShop() {
     }
   };
 
-  // Inscription avec Supabase Auth
+  // Inscription
   const handleRegister = async () => {
     if (!registerName || !registerEmail || !registerPassword) {
       notify('Veuillez remplir tous les champs');
@@ -336,7 +319,6 @@ export default function JerseyShop() {
 
       if (error) throw error;
 
-      // Vérifier si l'email doit être confirmé
       if (data.user && !data.session) {
         notify('📧 Vérifiez votre email pour confirmer votre compte');
         setShowAuth(false);
@@ -346,7 +328,6 @@ export default function JerseyShop() {
         return;
       }
 
-      // Si pas de confirmation email requise, connecter directement
       if (data.user && data.session) {
         setCurrentUser({
           id: data.user.id,
@@ -377,8 +358,14 @@ export default function JerseyShop() {
   };
 
   const addToCart = (product, size, qty) => {
-    setCart([...cart, { ...product, size, quantity: qty, cartId: Date.now() }]);
-    notify('Ajouté au panier');
+    const cartItem = {
+      ...product,
+      size,
+      quantity: qty,
+      cartId: `${product.id}-${size}-${Date.now()}`
+    };
+    setCart([...cart, cartItem]);
+    notify('Produit ajouté au panier');
     setShowCart(true);
   };
 
@@ -409,7 +396,6 @@ export default function JerseyShop() {
     try {
       notify('Redirection vers le paiement...');
       
-      // Créer une session Stripe Checkout via le backend
       const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
         method: 'POST',
         headers: {
@@ -434,8 +420,6 @@ export default function JerseyShop() {
       }
 
       const { url } = await response.json();
-
-      // Rediriger vers Stripe Checkout
       window.location.href = url;
     } catch (error) {
       console.error('Erreur commande:', error);
@@ -446,78 +430,68 @@ export default function JerseyShop() {
   const openAddProduct = () => {
     setEditingProduct(null);
     setProductName('');
-    setProductClub('');
+    setProductBrand('');
     setProductPrice('');
     setProductCost('');
-    setProductCategory('Domicile');
+    setProductCategory('Électronique');
     setProductImage('');
-    setImagePreview('');
     setProductStock('100');
+    setImagePreview('');
     setShowProductForm(true);
   };
 
   const openEditProduct = (product) => {
     setEditingProduct(product);
     setProductName(product.name);
-    setProductClub(product.club);
+    setProductBrand(product.brand || '');
     setProductPrice(product.price.toString());
     setProductCost(product.cost.toString());
     setProductCategory(product.category);
     setProductImage(product.image);
-    setImagePreview(product.image);
     setProductStock(product.stock.toString());
+    setImagePreview(product.image);
     setShowProductForm(true);
   };
 
-  // Sauvegarder un produit
   const saveProduct = async () => {
-    if (!productName || !productClub || !productPrice || !productCost || !productImage) {
-      notify('Veuillez remplir tous les champs et ajouter une image');
+    if (!productName || !productBrand || !productPrice || !productCost || !productImage) {
+      notify('Veuillez remplir tous les champs');
       return;
     }
-    
+
     try {
+      const productData = {
+        name: productName,
+        brand: productBrand,
+        price: parseFloat(productPrice),
+        cost: parseFloat(productCost),
+        category: productCategory,
+        image: productImage,
+        stock: parseInt(productStock),
+        rating: 4.5
+      };
+
       if (editingProduct) {
         const { data, error } = await supabase
           .from('products')
-          .update({
-            name: productName,
-            club: productClub,
-            price: parseFloat(productPrice),
-            cost: parseFloat(productCost),
-            category: productCategory,
-            image: productImage,
-            stock: parseInt(productStock)
-          })
+          .update(productData)
           .eq('id', editingProduct.id)
           .select();
 
         if (error) throw error;
-
         setProducts(products.map(p => p.id === editingProduct.id ? data[0] : p));
         notify('Produit modifié');
       } else {
-        const newProduct = {
-          name: productName,
-          club: productClub,
-          price: parseFloat(productPrice),
-          cost: parseFloat(productCost),
-          category: productCategory,
-          image: productImage,
-          stock: parseInt(productStock),
-          rating: 4.5
-        };
-
         const { data, error } = await supabase
           .from('products')
-          .insert([newProduct])
+          .insert([productData])
           .select();
 
         if (error) throw error;
-
         setProducts([...products, data[0]]);
         notify('Produit ajouté');
       }
+
       setShowProductForm(false);
     } catch (error) {
       console.error('Erreur sauvegarde produit:', error);
@@ -525,7 +499,6 @@ export default function JerseyShop() {
     }
   };
 
-  // Supprimer un produit
   const deleteProduct = async (id) => {
     if (!window.confirm('Supprimer ce produit ?')) return;
 
@@ -536,7 +509,6 @@ export default function JerseyShop() {
         .eq('id', id);
 
       if (error) throw error;
-
       setProducts(products.filter(p => p.id !== id));
       notify('Produit supprimé');
     } catch (error) {
@@ -545,57 +517,90 @@ export default function JerseyShop() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg font-medium">Chargement de Nexora...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Header Component
   const Header = () => (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <button onClick={() => setPage('home')} className="text-2xl font-bold">
-            JERSEY<span className="text-blue-600">SHOP</span>
-          </button>
+          <div className="flex items-center gap-8">
+            <h1 
+              onClick={() => setPage('home')} 
+              className="text-3xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent cursor-pointer hover:scale-105 transition-transform"
+            >
+              NEXORA
+            </h1>
+            <nav className="hidden md:flex gap-6">
+              <button onClick={() => setPage('home')} className="text-gray-700 hover:text-indigo-600 font-medium transition">Accueil</button>
+              <button onClick={() => setPage('shop')} className="text-gray-700 hover:text-indigo-600 font-medium transition">Boutique</button>
+              {currentUser?.isAdmin && (
+                <button onClick={() => setPage('admin')} className="text-indigo-600 hover:text-indigo-700 font-bold transition">Administration</button>
+              )}
+            </nav>
+          </div>
           <div className="flex items-center gap-4">
             <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
               <input
                 ref={searchInputRef}
                 type="text"
                 placeholder="Rechercher..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:border-blue-600 w-64"
+                onFocus={() => page !== 'shop' && setPage('shop')}
+                className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <X size={16} />
-                </button>
-              )}
             </div>
-            <button onClick={() => setShowCart(true)} className="relative p-2 hover:bg-gray-100 rounded-lg">
-              <ShoppingCart size={22} />
-              {getCount() > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+            <button onClick={() => setShowCart(true)} className="relative p-2 hover:bg-gray-100 rounded-full transition">
+              <ShoppingCart size={24} />
+              {cart.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                   {getCount()}
                 </span>
               )}
             </button>
             <div className="relative">
-              <button onClick={() => currentUser ? setShowUserMenu(!showUserMenu) : setShowAuth(true)} className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg">
-                <User size={22} />
-                {currentUser && <span className="hidden md:block text-sm">{currentUser.name}</span>}
+              <button onClick={() => setShowUserMenu(!showUserMenu)} className="p-2 hover:bg-gray-100 rounded-full transition">
+                <User size={24} />
               </button>
-              {showUserMenu && currentUser && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border py-2 z-50">
-                  <div className="px-4 py-2 border-b">
-                    <p className="font-semibold text-sm">{currentUser.name}</p>
-                    <p className="text-xs text-gray-600">{currentUser.email}</p>
-                  </div>
-                  {currentUser.isAdmin && (
-                    <button onClick={() => { setPage('admin'); setShowUserMenu(false); }} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-blue-600">
-                      Administration
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border">
+                  {currentUser ? (
+                    <>
+                      <div className="px-4 py-2 border-b">
+                        <p className="font-semibold text-sm">{currentUser.name}</p>
+                        <p className="text-xs text-gray-500">{currentUser.email}</p>
+                      </div>
+                      {currentUser.isAdmin && (
+                        <button 
+                          onClick={() => { 
+                            setPage('admin'); 
+                            setShowUserMenu(false); 
+                          }} 
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-indigo-600 font-semibold"
+                        >
+                          <Shield size={16} /> Administration
+                        </button>
+                      )}
+                      <button onClick={logout} className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2">
+                        <LogOut size={16} /> Déconnexion
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => { setShowAuth(true); setShowUserMenu(false); }} className="w-full px-4 py-2 text-left hover:bg-gray-50">
+                      Se connecter
                     </button>
                   )}
-                  <button onClick={logout} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600 flex items-center gap-2">
-                    <LogOut size={16} /> Déconnexion
-                  </button>
                 </div>
               )}
             </div>
@@ -603,427 +608,413 @@ export default function JerseyShop() {
         </div>
       </div>
       {notification && (
-        <div className="fixed top-24 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-xl z-50">
+        <div className="fixed top-20 right-4 bg-indigo-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in">
           {notification}
         </div>
       )}
     </header>
   );
 
-  if (loading) {
+  // Panier
+  if (showCart) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (showAuth) {
-    return (
-      <div>
-        <Header />
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">{authMode === 'login' ? 'Connexion' : 'Inscription'}</h2>
-              <button onClick={() => setShowAuth(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X size={24} />
-              </button>
-            </div>
-            {authMode === 'login' ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Email</label>
-                  <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Mot de passe</label>
-                  <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-                <button onClick={handleLogin} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
-                  Se connecter
-                </button>
-                <button onClick={() => setAuthMode('register')} className="w-full text-sm text-blue-600 hover:underline">
-                  Pas de compte ? S'inscrire
-                </button>
-              </div>
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+            <h2 className="text-2xl font-bold">Panier ({getCount()})</h2>
+            <button onClick={() => setShowCart(false)} className="p-2 hover:bg-gray-100 rounded-full">
+              <X size={24} />
+            </button>
+          </div>
+          <div className="p-6">
+            {cart.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">Votre panier est vide</p>
             ) : (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Nom complet</label>
-                  <input type="text" value={registerName} onChange={(e) => setRegisterName(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Email</label>
-                  <input type="email" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Mot de passe (min 6 caractères)</label>
-                  <input type="password" value={registerPassword} onChange={(e) => setRegisterPassword(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-                <button onClick={handleRegister} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
-                  Créer mon compte
-                </button>
-                <button onClick={() => setAuthMode('login')} className="w-full text-sm text-blue-600 hover:underline">
-                  Déjà un compte ? Se connecter
-                </button>
+                {cart.map(item => (
+                  <div key={item.cartId} className="flex gap-4 p-4 border rounded-lg">
+                    <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{item.name}</h3>
+                      <p className="text-lg font-bold text-indigo-600">{item.price}€</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <button onClick={() => removeFromCart(item.cartId)} className="text-red-600 hover:text-red-700">
+                        <Trash2 size={18} />
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => updateQuantity(item.cartId, item.quantity - 1)} className="p-1 hover:bg-gray-100 rounded">
+                          <Minus size={16} />
+                        </button>
+                        <span className="w-8 text-center font-semibold">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.cartId, item.quantity + 1)} className="p-1 hover:bg-gray-100 rounded">
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (showCart) {
-    return (
-      <div>
-        <Header />
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
-          <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Panier ({getCount()})</h2>
-                <button onClick={() => setShowCart(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                  <X size={24} />
-                </button>
+          {cart.length > 0 && (
+            <div className="p-6 border-t bg-gray-50 sticky bottom-0">
+              <div className="flex justify-between mb-4">
+                <span className="text-lg font-semibold">Total</span>
+                <span className="text-2xl font-bold text-indigo-600">{getTotal()}€</span>
               </div>
-              {cart.length === 0 ? (
-                <div className="text-center py-12">
-                  <ShoppingCart size={64} className="mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-500 mb-4">Votre panier est vide</p>
-                  <button onClick={() => { setShowCart(false); setPage('shop'); }} className="bg-blue-600 text-white px-6 py-3 rounded-lg">
-                    Découvrir
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-4 mb-6">
-                    {cart.map(item => (
-                      <div key={item.cartId} className="flex gap-4 p-3 border rounded-lg">
-                        <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded" />
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-sm mb-1">{item.name}</h3>
-                          <p className="text-xs text-gray-600 mb-2">Taille: {item.size}</p>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => updateQuantity(item.cartId, item.quantity - 1)} className="w-7 h-7 border rounded flex items-center justify-center">
-                              <Minus size={14} />
-                            </button>
-                            <span className="text-sm w-8 text-center">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.cartId, item.quantity + 1)} className="w-7 h-7 border rounded flex items-center justify-center">
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold mb-2">{(item.price * item.quantity).toFixed(2)}€</p>
-                          <button onClick={() => removeFromCart(item.cartId)} className="text-red-500 text-xs">
-                            Retirer
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t pt-4 mb-6">
-                    <div className="flex justify-between text-xl font-bold">
-                      <span>Total</span>
-                      <span>{getTotal()}€</span>
-                    </div>
-                  </div>
-                  <button onClick={() => { setShowCart(false); setPage('checkout'); }} className="w-full bg-blue-600 text-white py-4 rounded-lg font-bold">
-                    Commander
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (showProductForm) {
-    return (
-      <div>
-        <Header />
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-screen overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">{editingProduct ? 'Modifier' : 'Ajouter'} un produit</h2>
-              <button onClick={() => setShowProductForm(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X size={24} />
+              <button 
+                onClick={() => { setShowCart(false); setPage('checkout'); }} 
+                className="w-full bg-indigo-600 text-white py-4 rounded-lg font-bold hover:bg-indigo-700 transition"
+              >
+                Commander
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Image du produit</label>
-                <div className="flex items-center gap-4">
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200" />
-                      <button onClick={() => { setProductImage(''); setImagePreview(''); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-                      <Upload className="text-gray-400" size={32} />
-                    </div>
-                  )}
-                  <label className={`cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 flex items-center gap-2 ${uploadingImage ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    <Upload size={18} />
-                    {uploadingImage ? 'Upload en cours...' : 'Choisir une image'}
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
-                  </label>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">JPG, PNG ou GIF (max 5MB)</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Nom du produit</label>
-                <input type="text" value={productName} onChange={(e) => setProductName(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Club</label>
-                <input type="text" value={productClub} onChange={(e) => setProductClub(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prix de vente</label>
-                  <input type="number" step="0.01" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prix achat</label>
-                  <input type="number" step="0.01" value={productCost} onChange={(e) => setProductCost(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Catégorie</label>
-                  <select value={productCategory} onChange={(e) => setProductCategory(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600">
-                    <option value="Domicile">Domicile</option>
-                    <option value="Exterieur">Extérieur</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Stock</label>
-                  <input type="number" value={productStock} onChange={(e) => setProductStock(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                </div>
-              </div>
-              {productPrice && productCost && (
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-green-700 font-semibold">Marge prévue: {(parseFloat(productPrice) - parseFloat(productCost)).toFixed(2)}€</p>
-                </div>
-              )}
-              <div className="flex gap-4 pt-4">
-                <button onClick={saveProduct} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700" disabled={uploadingImage}>
-                  {editingProduct ? 'Modifier' : 'Ajouter'}
-                </button>
-                <button onClick={() => setShowProductForm(false)} className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300">
-                  Annuler
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     );
   }
 
-  if (page === 'admin' && currentUser?.isAdmin) {
+  // Modal Auth
+  if (showAuth) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-md w-full p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">{authMode === 'login' ? 'Connexion' : 'Inscription'}</h2>
+            <button onClick={() => setShowAuth(false)} className="p-2 hover:bg-gray-100 rounded-full">
+              <X size={24} />
+            </button>
+          </div>
+          {authMode === 'login' ? (
+            <div className="space-y-4">
+              <input
+                type="email"
+                placeholder="Email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <input
+                type="password"
+                placeholder="Mot de passe"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button onClick={handleLogin} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700">
+                Se connecter
+              </button>
+              <p className="text-center text-sm">
+                Pas de compte ? 
+                <button onClick={() => setAuthMode('register')} className="text-indigo-600 hover:underline ml-1">
+                  S'inscrire
+                </button>
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Nom"
+                value={registerName}
+                onChange={(e) => setRegisterName(e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={registerEmail}
+                onChange={(e) => setRegisterEmail(e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <input
+                type="password"
+                placeholder="Mot de passe (min 6 caractères)"
+                value={registerPassword}
+                onChange={(e) => setRegisterPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleRegister()}
+                className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button onClick={handleRegister} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700">
+                Créer mon compte
+              </button>
+              <p className="text-center text-sm">
+                Déjà un compte ? 
+                <button onClick={() => setAuthMode('login')} className="text-indigo-600 hover:underline ml-1">
+                  Se connecter
+                </button>
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Pages du site...
+  // (Le reste du code continue avec les pages admin, shop, product, checkout, confirmation, success)
+  // Pour garder la réponse concise, je vais juste montrer les changements clés
+
+  if (page === 'admin') {
+    if (!currentUser?.isAdmin) {
+      return (
+        <div>
+          <Header />
+          <div className="container mx-auto px-4 py-16 text-center">
+            <h1 className="text-3xl font-bold text-red-600 mb-4">Accès refusé</h1>
+            <p className="text-gray-600">Vous devez être administrateur</p>
+            <button onClick={() => setPage('home')} className="mt-4 text-indigo-600 hover:underline">
+              Retour à l'accueil
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
         <Header />
         <div className="min-h-screen bg-gray-50">
-          <div className="bg-white border-b">
-            <div className="container mx-auto px-4 flex gap-6">
-              <button onClick={() => setAdminTab('products')} className={`py-4 px-6 font-semibold ${adminTab === 'products' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600'}`}>
-                Produits
-              </button>
-              <button onClick={() => setAdminTab('orders')} className={`py-4 px-6 font-semibold ${adminTab === 'orders' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600'}`}>
-                Commandes
-              </button>
-              <button onClick={() => setAdminTab('stats')} className={`py-4 px-6 font-semibold ${adminTab === 'stats' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600'}`}>
-                Statistiques
-              </button>
-            </div>
-          </div>
           <div className="container mx-auto px-4 py-8">
-            {adminTab === 'products' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h1 className="text-3xl font-bold">Gestion des produits</h1>
-                  <button onClick={openAddProduct} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 flex items-center gap-2">
-                    <Plus size={20} /> Ajouter un produit
-                  </button>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {products.map(p => (
-                    <div key={p.id} className="bg-white rounded-lg shadow p-3 flex flex-col">
-                      <div className="w-full h-40 flex items-center justify-center bg-gray-50 rounded mb-3 p-3">
-                        <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
+            <h1 className="text-4xl font-bold mb-8">Administration Nexora</h1>
+            
+            <div className="bg-white rounded-lg shadow mb-8">
+              <div className="flex border-b overflow-x-auto">
+                <button onClick={() => setAdminTab('products')} className={`py-4 px-6 font-semibold ${adminTab === 'products' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600'}`}>
+                  Produits
+                </button>
+                <button onClick={() => setAdminTab('orders')} className={`py-4 px-6 font-semibold ${adminTab === 'orders' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600'}`}>
+                  Commandes
+                </button>
+                <button onClick={() => setAdminTab('stats')} className={`py-4 px-6 font-semibold ${adminTab === 'stats' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-600'}`}>
+                  Statistiques
+                </button>
+              </div>
+
+              <div className="p-6">
+                {adminTab === 'products' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold">Gestion des produits</h2>
+                      <button onClick={openAddProduct} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2">
+                        <Plus size={20} /> Ajouter un produit
+                      </button>
+                    </div>
+
+                    {showProductForm && (
+                      <div className="bg-gray-50 p-6 rounded-lg mb-6">
+                        <h3 className="text-xl font-bold mb-4">{editingProduct ? 'Modifier' : 'Nouveau'} produit</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Nom du produit</label>
+                            <input type="text" value={productName} onChange={(e) => setProductName(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-indigo-600" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Marque</label>
+                            <input type="text" value={productBrand} onChange={(e) => setProductBrand(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-indigo-600" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Prix de vente (€)</label>
+                            <input type="number" step="0.01" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-indigo-600" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Prix d'achat (€)</label>
+                            <input type="number" step="0.01" value={productCost} onChange={(e) => setProductCost(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-indigo-600" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Catégorie</label>
+                            <select value={productCategory} onChange={(e) => setProductCategory(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-indigo-600">
+                              {CATEGORIES.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Stock</label>
+                            <input type="number" value={productStock} onChange={(e) => setProductStock(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-indigo-600" />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-2">Image (URL ou upload)</label>
+                            <div className="flex gap-4">
+                              <input type="text" value={productImage} onChange={(e) => { setProductImage(e.target.value); setImagePreview(e.target.value); }} placeholder="URL de l'image" className="flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:border-indigo-600" />
+                              <label className="bg-gray-200 px-6 py-3 rounded-lg font-bold cursor-pointer hover:bg-gray-300 flex items-center gap-2">
+                                <Upload size={20} />
+                                {uploadingImage ? 'Upload...' : 'Upload'}
+                                <input type="file" accept="image/*" onChange={(e) => uploadImage(e.target.files[0])} className="hidden" disabled={uploadingImage} />
+                              </label>
+                            </div>
+                            {imagePreview && (
+                              <img src={imagePreview} alt="Preview" className="mt-4 w-32 h-32 object-cover rounded-lg" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-4 mt-6">
+                          <button onClick={saveProduct} className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-indigo-700">
+                            Enregistrer
+                          </button>
+                          <button onClick={() => setShowProductForm(false)} className="bg-gray-300 px-8 py-3 rounded-lg font-bold hover:bg-gray-400">
+                            Annuler
+                          </button>
+                        </div>
                       </div>
-                      <h3 className="font-semibold text-sm mb-2 line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
-                      <p className="text-xs text-gray-600 mb-2">Prix: {p.price}€ | Coût: {p.cost}€</p>
-                      <p className="text-green-600 font-semibold text-sm mb-3">Marge: {(p.price - p.cost).toFixed(2)}€</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => openEditProduct(p)} className="flex-1 bg-blue-100 text-blue-600 py-1.5 rounded-lg hover:bg-blue-200 flex items-center justify-center gap-1 text-sm">
-                          <Edit size={14} /> Modifier
-                        </button>
-                        <button onClick={() => deleteProduct(p.id)} className="flex-1 bg-red-100 text-red-600 py-1.5 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1 text-sm">
-                          <Trash2 size={14} /> Supprimer
-                        </button>
+                    )}
+
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {products.map(p => (
+                        <div key={p.id} className="bg-white border rounded-lg p-4">
+                          <img src={p.image} alt={p.name} className="w-full h-40 object-cover rounded-lg mb-3" />
+                          <h3 className="font-semibold text-sm mb-1">{p.name}</h3>
+                          <p className="text-xs text-gray-600 mb-2">{p.brand} • {p.category}</p>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-lg font-bold text-indigo-600">{p.price}€</span>
+                            <span className="text-xs text-gray-500">Stock: {p.stock}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => openEditProduct(p)} className="flex-1 bg-blue-100 text-blue-600 py-1.5 rounded-lg hover:bg-blue-200 flex items-center justify-center gap-1 text-sm">
+                              <Edit size={14} /> Modifier
+                            </button>
+                            <button onClick={() => deleteProduct(p.id)} className="flex-1 bg-red-100 text-red-600 py-1.5 rounded-lg hover:bg-red-200 flex items-center justify-center gap-1 text-sm">
+                              <Trash2 size={14} /> Supprimer
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {adminTab === 'orders' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <h1 className="text-3xl font-bold">Commandes ({orders.length})</h1>
+                      <button 
+                        onClick={loadOrders} 
+                        className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Actualiser
+                      </button>
+                    </div>
+                    {orders.length === 0 ? (
+                      <div className="bg-white rounded-lg p-12 text-center">
+                        <p className="text-gray-500">Aucune commande</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {orders.map(order => {
+                          const orderProfit = order.items?.reduce((sum, item) => {
+                            const itemCost = item.cost || 0;
+                            const itemPrice = item.price || 0;
+                            const itemQty = item.quantity || 1;
+                            return sum + ((itemPrice - itemCost) * itemQty);
+                          }, 0) || 0;
+
+                          return (
+                            <div key={order.id} className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition">
+                              <div className="flex justify-between items-start mb-4">
+                                <div>
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <h3 className="font-bold text-lg">Commande #{order.id}</h3>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                      order.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                    }`}>
+                                      {order.status === 'paid' ? 'Payée' : 'En attente'}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-600">📅 {new Date(order.created_at).toLocaleString('fr-FR')}</p>
+                                  <p className="text-sm text-gray-600">👤 {order.customer_name}</p>
+                                  <p className="text-sm text-gray-600">📧 {order.customer_email}</p>
+                                  <p className="text-sm text-gray-600">📞 {order.customer_phone}</p>
+                                  <p className="text-sm text-gray-600">📍 {order.customer_address}, {order.customer_postal} {order.customer_city}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm text-gray-500 mb-1">Total</p>
+                                  <p className="text-2xl font-bold text-indigo-600">{order.total.toFixed(2)}€</p>
+                                  <p className="text-green-600 text-sm font-semibold mt-2">💰 Profit: {orderProfit.toFixed(2)}€</p>
+                                </div>
+                              </div>
+                              
+                              <div className="border-t pt-4 mt-4">
+                                <p className="text-sm font-semibold text-gray-700 mb-3">Articles commandés :</p>
+                                <div className="space-y-2">
+                                  {order.items?.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded">
+                                      <div className="flex items-center gap-3">
+                                        {item.image && (
+                                          <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded" />
+                                        )}
+                                        <div>
+                                          <p className="font-medium text-sm">{item.name}</p>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-sm font-semibold">{item.quantity}x {item.price?.toFixed(2)}€</p>
+                                        <p className="text-xs text-gray-500">= {(item.quantity * item.price).toFixed(2)}€</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {order.stripe_session_id && (
+                                <div className="border-t pt-3 mt-3">
+                                  <p className="text-xs text-gray-500">
+                                    💳 Session Stripe: <code className="bg-gray-100 px-2 py-1 rounded">{order.stripe_session_id}</code>
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {adminTab === 'stats' && (
+                  <div>
+                    <h1 className="text-3xl font-bold mb-6">Statistiques</h1>
+                    <div className="grid md:grid-cols-4 gap-6">
+                      <div className="bg-white rounded-lg p-6">
+                        <Package className="text-indigo-600 mb-2" size={32} />
+                        <p className="text-gray-600">Produits</p>
+                        <p className="text-2xl font-bold">{products.length}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-6">
+                        <ShoppingCart className="text-green-600 mb-2" size={32} />
+                        <p className="text-gray-600">Commandes</p>
+                        <p className="text-2xl font-bold">{orders.length}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-6">
+                        <CreditCard className="text-purple-600 mb-2" size={32} />
+                        <p className="text-gray-600">Revenus</p>
+                        <p className="text-2xl font-bold">{orders.reduce((s, o) => s + (o.total || 0), 0).toFixed(2)}€</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-6">
+                        <BarChart className="text-orange-600 mb-2" size={32} />
+                        <p className="text-gray-600">Profit</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {orders.reduce((totalProfit, order) => {
+                            const orderProfit = (order.items || []).reduce((sum, item) => {
+                              const itemCost = item.cost || 0;
+                              const itemPrice = item.price || 0;
+                              const itemQty = item.quantity || 1;
+                              return sum + ((itemPrice - itemCost) * itemQty);
+                            }, 0);
+                            return totalProfit + orderProfit;
+                          }, 0).toFixed(2)}€
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {adminTab === 'orders' && (
-              <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h1 className="text-3xl font-bold">Commandes ({orders.length})</h1>
-                  <button 
-                    onClick={loadOrders} 
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 flex items-center gap-2"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Actualiser
-                  </button>
-                </div>
-                {orders.length === 0 ? (
-                  <div className="bg-white rounded-lg p-12 text-center">
-                    <p className="text-gray-500">Aucune commande</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {orders.map(order => {
-                      // Calculer le profit de manière sécurisée
-                      const orderProfit = order.items?.reduce((sum, item) => {
-                        const itemCost = item.cost || 0;
-                        const itemPrice = item.price || 0;
-                        const itemQty = item.quantity || 1;
-                        return sum + ((itemPrice - itemCost) * itemQty);
-                      }, 0) || 0;
-
-                      return (
-                        <div key={order.id} className="bg-white rounded-lg p-6 shadow hover:shadow-lg transition">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="font-bold text-lg">Commande #{order.id}</h3>
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  order.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                }`}>
-                                  {order.status === 'paid' ? 'Payée' : 'En attente'}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-600">
-                                📅 {new Date(order.created_at).toLocaleString('fr-FR')}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                👤 {order.customer_name}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                📧 {order.customer_email}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                📞 {order.customer_phone}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                📍 {order.customer_address}, {order.customer_postal} {order.customer_city}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm text-gray-500 mb-1">Total</p>
-                              <p className="text-2xl font-bold text-blue-600">{order.total.toFixed(2)}€</p>
-                              <p className="text-green-600 text-sm font-semibold mt-2">
-                                💰 Profit: {orderProfit.toFixed(2)}€
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {/* Liste des produits */}
-                          <div className="border-t pt-4 mt-4">
-                            <p className="text-sm font-semibold text-gray-700 mb-3">Articles commandés :</p>
-                            <div className="space-y-2">
-                              {order.items?.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded">
-                                  <div className="flex items-center gap-3">
-                                    {item.image && (
-                                      <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded" />
-                                    )}
-                                    <div>
-                                      <p className="font-medium text-sm">{item.name}</p>
-                                      {item.size && <p className="text-xs text-gray-500">Taille: {item.size}</p>}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-sm font-semibold">{item.quantity}x {item.price?.toFixed(2)}€</p>
-                                    <p className="text-xs text-gray-500">= {(item.quantity * item.price).toFixed(2)}€</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Info Stripe */}
-                          {order.stripe_session_id && (
-                            <div className="border-t pt-3 mt-3">
-                              <p className="text-xs text-gray-500">
-                                💳 Session Stripe: <code className="bg-gray-100 px-2 py-1 rounded">{order.stripe_session_id}</code>
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
                 )}
               </div>
-            )}
-            {adminTab === 'stats' && (
-              <div>
-                <h1 className="text-3xl font-bold mb-6">Statistiques</h1>
-                <div className="grid md:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg p-6">
-                    <Package className="text-blue-600 mb-2" size={32} />
-                    <p className="text-gray-600">Produits</p>
-                    <p className="text-2xl font-bold">{products.length}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-6">
-                    <ShoppingCart className="text-green-600 mb-2" size={32} />
-                    <p className="text-gray-600">Commandes</p>
-                    <p className="text-2xl font-bold">{orders.length}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-6">
-                    <CreditCard className="text-purple-600 mb-2" size={32} />
-                    <p className="text-gray-600">Revenus</p>
-                    <p className="text-2xl font-bold">{orders.reduce((s, o) => s + (o.total || 0), 0).toFixed(2)}€</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-6">
-                    <BarChart className="text-orange-600 mb-2" size={32} />
-                    <p className="text-gray-600">Profit</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {orders.reduce((totalProfit, order) => {
-                        // Calculer le profit pour cette commande
-                        const orderProfit = (order.items || []).reduce((sum, item) => {
-                          const itemCost = item.cost || 0;
-                          const itemPrice = item.price || 0;
-                          const itemQty = item.quantity || 1;
-                          return sum + ((itemPrice - itemCost) * itemQty);
-                        }, 0);
-                        return totalProfit + orderProfit;
-                      }, 0).toFixed(2)}€
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -1034,41 +1025,47 @@ export default function JerseyShop() {
     return (
       <div>
         <Header />
-        <section className="relative h-96 bg-gradient-to-r from-gray-900 to-gray-800">
-          <div className="container mx-auto px-4 h-full flex items-center">
-            <div className="text-white">
-              <h1 className="text-5xl font-bold mb-4">MAILLOTS 2026</h1>
-              <p className="text-xl mb-8">Les plus grands clubs européens</p>
-              <button onClick={() => setPage('shop')} className="bg-white text-gray-900 px-8 py-3 rounded-lg font-bold">
-                Découvrir
+        <section className="relative h-96 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-10 left-10 w-72 h-72 bg-white rounded-full blur-3xl"></div>
+            <div className="absolute bottom-10 right-10 w-96 h-96 bg-yellow-300 rounded-full blur-3xl"></div>
+          </div>
+          <div className="container mx-auto px-4 h-full flex items-center relative z-10">
+            <div className="text-white max-w-2xl">
+              <h1 className="text-6xl font-black mb-4 animate-fade-in">Découvrez Nexora</h1>
+              <p className="text-xl mb-8 opacity-90">Les meilleurs produits sélectionnés pour vous</p>
+              <button onClick={() => setPage('shop')} className="bg-white text-indigo-600 px-8 py-4 rounded-lg font-bold hover:bg-opacity-90 transition transform hover:scale-105">
+                Explorer la boutique
               </button>
             </div>
           </div>
         </section>
+
         <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold mb-8 text-center">Nos Produits</h2>
+            <h2 className="text-3xl font-bold mb-8 text-center">Produits Populaires</h2>
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500 text-xl">Aucun produit trouvé</p>
-                <button onClick={() => setSearchTerm('')} className="mt-4 text-blue-600 hover:underline">
-                  Réinitialiser la recherche
-                </button>
+                <p className="text-gray-500 text-xl">Aucun produit disponible</p>
               </div>
             ) : (
               <div className="grid md:grid-cols-4 gap-6">
-                {filteredProducts.map(p => (
-                  <div key={p.id} className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer flex flex-col" onClick={() => { setSelectedProduct(p); setPage('product'); }}>
-                    <div className="h-48 w-full flex items-center justify-center bg-gray-50 rounded-t-lg p-3">
-                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
+                {filteredProducts.slice(0, 8).map(p => (
+                  <div key={p.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition cursor-pointer flex flex-col overflow-hidden group" onClick={() => { setSelectedProduct(p); setPage('product'); }}>
+                    <div className="h-64 w-full overflow-hidden bg-gray-50 flex items-center justify-center p-4">
+                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" />
                     </div>
-                    <div className="p-3 flex-1 flex flex-col justify-between">
-                      <h3 className="font-semibold text-sm mb-2 line-clamp-2">{p.name}</h3>
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs text-indigo-600 font-semibold mb-1">{p.category}</p>
+                        <h3 className="font-semibold text-sm mb-1 line-clamp-2">{p.name}</h3>
+                        <p className="text-xs text-gray-500 mb-2">{p.brand}</p>
+                      </div>
                       <div className="flex items-center justify-between mt-auto">
-                        <span className="text-lg font-bold">{p.price}€</span>
+                        <span className="text-lg font-bold text-indigo-600">{p.price}€</span>
                         <div className="flex items-center gap-1">
-                          <Star size={14} className="text-yellow-500 fill-current" />
-                          <span className="text-xs">{p.rating}</span>
+                          <Star size={14} className="fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm text-gray-600">{p.rating}</span>
                         </div>
                       </div>
                     </div>
@@ -1076,6 +1073,34 @@ export default function JerseyShop() {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="grid md:grid-cols-3 gap-8 text-center">
+              <div>
+                <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield size={32} className="text-indigo-600" />
+                </div>
+                <h3 className="font-bold text-lg mb-2">Paiement Sécurisé</h3>
+                <p className="text-gray-600">Vos transactions sont protégées par Stripe</p>
+              </div>
+              <div>
+                <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Package size={32} className="text-indigo-600" />
+                </div>
+                <h3 className="font-bold text-lg mb-2">Livraison Rapide</h3>
+                <p className="text-gray-600">Expédition sous 24-48h</p>
+              </div>
+              <div>
+                <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Star size={32} className="text-indigo-600" />
+                </div>
+                <h3 className="font-bold text-lg mb-2">Qualité Premium</h3>
+                <p className="text-gray-600">Produits soigneusement sélectionnés</p>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -1088,24 +1113,34 @@ export default function JerseyShop() {
         <Header />
         <div className="bg-white py-8">
           <div className="container mx-auto px-4">
-            <h1 className="text-4xl font-bold mb-8">BOUTIQUE</h1>
+            <h1 className="text-4xl font-bold mb-8">Boutique</h1>
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 text-xl">Aucun produit trouvé</p>
-                <button onClick={() => setSearchTerm('')} className="mt-4 text-blue-600 hover:underline">
+                <button onClick={() => setSearchTerm('')} className="mt-4 text-indigo-600 hover:underline">
                   Réinitialiser la recherche
                 </button>
               </div>
             ) : (
               <div className="grid md:grid-cols-4 gap-6">
                 {filteredProducts.map(p => (
-                  <div key={p.id} className="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer flex flex-col" onClick={() => { setSelectedProduct(p); setPage('product'); }}>
-                    <div className="h-48 w-full flex items-center justify-center bg-gray-50 rounded-t-lg p-3">
-                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain" />
+                  <div key={p.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition cursor-pointer flex flex-col overflow-hidden group" onClick={() => { setSelectedProduct(p); setPage('product'); }}>
+                    <div className="h-64 w-full overflow-hidden bg-gray-50 flex items-center justify-center p-4">
+                      <img src={p.image} alt={p.name} className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" />
                     </div>
-                    <div className="p-3 flex-1 flex flex-col justify-between">
-                      <h3 className="font-semibold text-sm mb-2 line-clamp-2">{p.name}</h3>
-                      <span className="text-lg font-bold mt-auto">{p.price}€</span>
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div>
+                        <p className="text-xs text-indigo-600 font-semibold mb-1">{p.category}</p>
+                        <h3 className="font-semibold text-sm mb-1 line-clamp-2">{p.name}</h3>
+                        <p className="text-xs text-gray-500 mb-2">{p.brand}</p>
+                      </div>
+                      <div className="flex items-center justify-between mt-auto">
+                        <span className="text-lg font-bold text-indigo-600">{p.price}€</span>
+                        <div className="flex items-center gap-1">
+                          <Star size={14} className="fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm text-gray-600">{p.rating}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1117,48 +1152,61 @@ export default function JerseyShop() {
     );
   }
 
+  // Page produit
   if (page === 'product' && selectedProduct) {
     return (
       <div>
         <Header />
-        <div className="bg-white py-8">
-          <div className="container mx-auto px-4">
-            <button onClick={() => setPage('shop')} className="text-blue-600 mb-6">← Retour</button>
-            <div className="grid md:grid-cols-2 gap-12">
-              <div className="flex items-center justify-center bg-gray-50 rounded-lg p-8">
-                <img src={selectedProduct.image} alt={selectedProduct.name} className="max-w-full max-h-[500px] object-contain" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold mb-4">{selectedProduct.name}</h1>
-                <div className="text-4xl font-bold mb-8">{selectedProduct.price}€</div>
-                <div className="mb-6">
-                  <label className="block font-semibold mb-3">Taille</label>
-                  <div className="grid grid-cols-6 gap-2">
-                    {SIZES.map(size => (
-                      <button key={size} onClick={() => setSelectedSize(size)} className={`py-3 border-2 rounded font-semibold ${selectedSize === size ? 'border-black bg-black text-white' : 'border-gray-300'}`}>
-                        {size}
+        <div className="bg-gray-50 min-h-screen py-16">
+          <div className="container mx-auto px-4 max-w-6xl">
+            <button onClick={() => setPage('shop')} className="text-indigo-600 hover:underline mb-6 flex items-center gap-2">
+              ← Retour à la boutique
+            </button>
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="h-96 w-full bg-gray-100 flex items-center justify-center">
+                  <img src={selectedProduct.image} alt={selectedProduct.name} className="max-h-full max-w-full object-contain p-8" />
+                </div>
+                <div className="p-8">
+                  <p className="text-indigo-600 font-semibold mb-2">{selectedProduct.category}</p>
+                  <h1 className="text-4xl font-bold mb-2">{selectedProduct.name}</h1>
+                  <p className="text-gray-600 mb-4">{selectedProduct.brand}</p>
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="flex">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={20} className={i < Math.floor(selectedProduct.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} />
+                      ))}
+                    </div>
+                    <span className="text-gray-600">({selectedProduct.rating})</span>
+                  </div>
+                  <p className="text-4xl font-bold text-indigo-600 mb-8">{selectedProduct.price}€</p>
+                  
+                  <div className="mb-8">
+                    <label className="block font-semibold mb-3">Quantité</label>
+                    <div className="flex items-center gap-4">
+                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 border-2 border-gray-300 rounded-lg hover:border-gray-400">
+                        <Minus size={20} />
                       </button>
-                    ))}
+                      <span className="text-xl font-bold w-12 text-center">{quantity}</span>
+                      <button onClick={() => setQuantity(quantity + 1)} className="p-2 border-2 border-gray-300 rounded-lg hover:border-gray-400">
+                        <Plus size={20} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="mb-8">
-                  <label className="block font-semibold mb-3">Quantité</label>
-                  <div className="flex items-center gap-4">
-                    <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-12 border-2 rounded flex items-center justify-center">
-                      <Minus size={20} />
-                    </button>
-                    <span className="text-xl font-bold w-12 text-center">{quantity}</span>
-                    <button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 border-2 rounded flex items-center justify-center">
-                      <Plus size={20} />
-                    </button>
+
+                  <button
+                    onClick={() => addToCart(selectedProduct, 'Unique', quantity)}
+                    className="w-full bg-indigo-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2"
+                  >
+                    <ShoppingCart size={24} />
+                    Ajouter au panier - {(selectedProduct.price * quantity).toFixed(2)}€
+                  </button>
+
+                  <div className="mt-8 pt-8 border-t">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-semibold">Stock:</span> {selectedProduct.stock} disponibles
+                    </p>
                   </div>
-                </div>
-                <button onClick={() => { addToCart(selectedProduct, selectedSize, quantity); setQuantity(1); }} className="w-full bg-black text-white py-4 rounded-lg font-bold text-lg mb-4">
-                  AJOUTER AU PANIER - {(selectedProduct.price * quantity).toFixed(2)}€
-                </button>
-                <div className="flex items-center gap-3">
-                  <Shield size={20} className="text-green-600" />
-                  <span className="text-sm">Paiement sécurisé</span>
                 </div>
               </div>
             </div>
@@ -1168,50 +1216,89 @@ export default function JerseyShop() {
     );
   }
 
+  // Page checkout
   if (page === 'checkout') {
     return (
       <div>
         <Header />
-        <div className="bg-gray-50 py-8">
-          <div className="container mx-auto px-4 max-w-5xl">
-            <h1 className="text-3xl font-bold mb-8">PAIEMENT</h1>
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="md:col-span-2">
-                <div className="bg-white rounded-lg p-6">
-                  <h2 className="text-xl font-bold mb-6">Informations de livraison</h2>
-                  <div className="space-y-4">
-                    <input type="text" placeholder="Nom complet" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <input type="email" placeholder="Email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                      <input type="tel" placeholder="Téléphone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                    </div>
-                    <input type="text" placeholder="Adresse" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <input type="text" placeholder="Ville" value={customerCity} onChange={(e) => setCustomerCity(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                      <input type="text" placeholder="Code postal" value={customerPostal} onChange={(e) => setCustomerPostal(e.target.value)} className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:border-blue-600" />
-                    </div>
+        <div className="bg-gray-50 min-h-screen py-16">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <h1 className="text-4xl font-bold mb-8">Finaliser la commande</h1>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="bg-white rounded-2xl p-8">
+                <h2 className="text-2xl font-bold mb-6">Informations de livraison</h2>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Nom complet"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Téléphone"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Adresse"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      placeholder="Ville"
+                      value={customerCity}
+                      onChange={(e) => setCustomerCity(e.target.value)}
+                      className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Code postal"
+                      value={customerPostal}
+                      onChange={(e) => setCustomerPostal(e.target.value)}
+                      className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </div>
                 </div>
               </div>
               <div>
-                <div className="bg-white rounded-lg p-6 sticky top-24">
-                  <h2 className="text-lg font-bold mb-4">RÉCAPITULATIF</h2>
-                  <div className="space-y-3 mb-4 pb-4 border-b">
+                <div className="bg-white rounded-2xl p-8 mb-4">
+                  <h2 className="text-2xl font-bold mb-6">Récapitulatif</h2>
+                  <div className="space-y-4 mb-6">
                     {cart.map(item => (
-                      <div key={item.cartId} className="flex justify-between text-sm">
-                        <span>{item.name} x{item.quantity}</span>
-                        <span className="font-semibold">{(item.price * item.quantity).toFixed(2)}€</span>
+                      <div key={item.cartId} className="flex justify-between items-center">
+                        <div>
+                          <p className="font-semibold text-sm">{item.name}</p>
+                          <p className="text-xs text-gray-500">{item.quantity}x</p>
+                        </div>
+                        <p className="font-bold">{(item.price * item.quantity).toFixed(2)}€</p>
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-between text-xl font-bold mb-4">
-                    <span>Total</span>
-                    <span>{getTotal()}€</span>
+                  <div className="border-t pt-4 flex justify-between items-center">
+                    <span className="text-lg font-semibold">Total</span>
+                    <span className="text-3xl font-bold text-indigo-600">{getTotal()}€</span>
                   </div>
-                  <button onClick={placeOrder} className="w-full bg-black text-white py-4 rounded-lg font-bold">
-                    VALIDER LA COMMANDE
-                  </button>
                 </div>
+                <button
+                  onClick={placeOrder}
+                  className="w-full bg-indigo-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-indigo-700 transition"
+                >
+                  Payer avec Stripe
+                </button>
               </div>
             </div>
           </div>
@@ -1220,31 +1307,7 @@ export default function JerseyShop() {
     );
   }
 
-  if (page === 'confirmation') {
-    return (
-      <div>
-        <Header />
-        <div className="bg-gray-50 min-h-screen py-16">
-          <div className="container mx-auto px-4 max-w-2xl text-center">
-            <div className="bg-white rounded-2xl p-12">
-              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="text-4xl font-bold mb-4">Commande confirmée !</h1>
-              <p className="text-xl text-gray-600 mb-8">Merci pour votre achat</p>
-              <button onClick={() => setPage('home')} className="bg-black text-white px-8 py-4 rounded-lg font-bold">
-                RETOUR À L'ACCUEIL
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Page de succès après paiement Stripe
+  // Page succès
   if (page === 'success') {
     return (
       <div>
@@ -1258,7 +1321,7 @@ export default function JerseyShop() {
                 </svg>
               </div>
               <h1 className="text-4xl font-bold mb-4">Paiement réussi !</h1>
-              <p className="text-xl text-gray-600 mb-4">Merci pour votre achat</p>
+              <p className="text-xl text-gray-600 mb-4">Merci pour votre achat sur Nexora</p>
               <p className="text-gray-600 mb-8">
                 Un email de confirmation a été envoyé à votre adresse.
                 <br />
@@ -1267,12 +1330,10 @@ export default function JerseyShop() {
               <div className="flex gap-4 justify-center">
                 <button 
                   onClick={() => {
-                    // Nettoyer l'URL
                     window.history.replaceState({}, '', '/');
-                    // Retourner à l'accueil
                     setPage('home');
                   }} 
-                  className="bg-black text-white px-8 py-4 rounded-lg font-bold hover:bg-gray-800"
+                  className="bg-indigo-600 text-white px-8 py-4 rounded-lg font-bold hover:bg-indigo-700"
                 >
                   RETOUR À L'ACCUEIL
                 </button>
